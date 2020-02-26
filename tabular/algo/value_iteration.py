@@ -1,5 +1,3 @@
-import copy
-
 import numpy as np
 import numpy.random as npr
 
@@ -8,8 +6,10 @@ from ..model import Agent
 
 
 class OnlineValueIteration(object):
-    def __init__(self, setting, env):
+    def __init__(self):
         self.name = "Value iteration"
+
+    def run(self, c, setting, env):
         n_state, n_action, n_step, p, alpha, n_episode = (
             setting["n_state"],
             setting["n_action"],
@@ -18,23 +18,21 @@ class OnlineValueIteration(object):
             setting["alpha"],
             setting["n_episode"],
         )
-        self.setting = setting
-        self.bonus_constant = n_step ** 3 * np.log(
-            n_state * n_action * n_episode * n_step / p
-        )
-        self.env = env
-        self.agent = Agent(setting)
+
+        yota = np.log(n_state * n_action * n_episode * n_step / p)
+        bonus_constant = n_step ** 3 * yota
+        env = env
+        agent = Agent(setting)
 
         for h in range(n_step):
             for s in range(n_state):
                 for a in range(n_action):
-                    if np.sum(self.env.P[h, s, a, :]) > 0:
-                        self.agent.Q[h, s, a] = n_step
+                    if np.sum(env.P[h, s, a, :]) > 0:
+                        agent.Q[h, s, a] = n_step
 
-        self.dp_solver = DPSolver()
+        dp_solver = DPSolver()
 
-    def run(self, c=1):
-        setting = self.setting
+        setting = setting
         n_state, n_action, n_step, p, alpha, n_episode = (
             setting["n_state"],
             setting["n_action"],
@@ -43,9 +41,8 @@ class OnlineValueIteration(object):
             setting["alpha"],
             setting["n_episode"],
         )
-        agent = copy.deepcopy(self.agent)
-        v_optimal = self.dp_solver.optimal_value(self.env)
-        bonus_constant = self.bonus_constant
+        v_optimal = dp_solver.optimal_value(env)
+        bonus_constant = bonus_constant
 
         regret = np.zeros(n_episode)
         for episode in range(n_episode):
@@ -54,7 +51,7 @@ class OnlineValueIteration(object):
             for step in range(n_step):
                 action = agent.greedy(step, state)
                 agent.N[step, state, action] += 1
-                next_state, reward = self.env.step(step, state, action)
+                next_state, reward = env.step(step, state, action)
                 bonus = c * np.sqrt(bonus_constant / agent.N[step, state, action])
                 v_next = 0
                 if step == n_step - 1:
@@ -66,6 +63,6 @@ class OnlineValueIteration(object):
                 agent.V[step, state] = min(np.max(agent.Q[step, state, :]), n_step)
                 state = next_state
 
-            v_policy = self.dp_solver.policy_value(self.env, agent)
+            v_policy = dp_solver.policy_value(env, agent)
             regret[episode] = v_optimal[0, start_state] - v_policy[0, start_state]
         return regret
