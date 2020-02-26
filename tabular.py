@@ -24,6 +24,7 @@ if __name__ == "__main__":
     parser.add_argument("--p", type=int, default=0.05)
     parser.add_argument("--alpha", type=int, default=0.1)
     parser.add_argument("--n-run", type=int, default=10)
+    parser.add_argument("--random-reward", action="store_true", default=True)
     args = parser.parse_args()
     setting = vars(args)
 
@@ -34,18 +35,17 @@ if __name__ == "__main__":
     img_dir = os.path.join("tmp", current_time)
     os.makedirs(img_dir, exist_ok=True)
 
-    mdp = FiniteMDP(setting)
-    env = mdp.env
-
+    env = FiniteMDP(setting)
 
     df = []
     step = int(max(setting["n_episode"] / 100, 1))
     episode_index = np.arange(start=0, stop=setting["n_episode"], step=step)
-    for _ in trange(setting['n_run']):
-        algorithm_set = [PolicyIteration(using_previous_estimate=False),
-                         PolicyIteration(using_previous_estimate=True),
-                         OnlineValueIteration()
-                         ]
+    for _ in trange(setting["n_run"]):
+        algorithm_set = [
+            PolicyIteration(using_previous_estimate=False),
+            PolicyIteration(using_previous_estimate=True),
+            OnlineValueIteration(),
+        ]
         for algorithm in algorithm_set:
             regret = algorithm.run(0.1, setting, env)
             regret = regret[::step]
@@ -67,9 +67,14 @@ if __name__ == "__main__":
     )
     sns_plot.set(xlabel="Episodes", ylabel="Cumulative regret")
     sns_plot.legend()
-    plt.title('Episode:{}, action:{}, stage:{}, state per stage:{}'.format(
-        setting['n_episode'], setting['n_action'], setting['n_state'], setting['state_per_stage']
-    ))
+    plt.title(
+        "Episode:{}, action:{}, state:{}, reward-random:{}".format(
+            setting["n_episode"],
+            setting["n_action"],
+            setting["n_state"],
+            setting["random_reward"],
+        )
+    )
     plt.show()
 
     sns_plot.get_figure().savefig(path.join(img_dir, "plot.png"))
