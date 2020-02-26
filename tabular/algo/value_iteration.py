@@ -36,7 +36,6 @@ class OnlineValueIteration(object):
                 agent.N[step, state, action] += 1
                 next_state, reward = env.step(step, state, action)
                 bonus = c * np.sqrt(bonus_constant / agent.N[step, state, action])
-                # v_next = 0 if step == n_step - 1 else agent.V[step + 1, next_state]
                 v_next = agent.V[step + 1, next_state]
                 q_hat_next = reward + v_next + bonus
                 q_hat = agent.Q[step, state, action]

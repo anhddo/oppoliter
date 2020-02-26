@@ -51,8 +51,5 @@ class FiniteMDP:
     def __str__(self):
         s = ""
         for action in range(self.n_action):
-            s += "action:{:.4f}, reward:{:.4f}".format(
-                action, self.mean_reward[0, 0, action]
-            )
-            s += "\n"
+            s += "action:{:.4f}, reward:{:.4f}\n".format(action, self.mean_reward[0, 0, action])
         return s
