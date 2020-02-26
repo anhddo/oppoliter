@@ -10,7 +10,7 @@ class Agent(object):
         )
         self.env_setting = env_setting
         self.Q = np.ones((n_step + 1, n_state, n_action)) * n_step
-        self.N = np.zeros((n_step + 1, n_state, n_action)) + 1e-3
+        self.N = np.zeros((n_step + 1, n_state, n_action)) + 1e-10
         self.V = np.zeros((n_step + 1, n_state))
         self.R_hat = np.zeros((n_step + 1, n_state, n_action))
         self.P_hat = np.zeros((n_step + 1, n_state, n_action, n_state))
@@ -18,6 +18,7 @@ class Agent(object):
             (n_step + 1, n_state, n_action, n_state), dtype=np.int
         )
         self.Q[n_step, ...] = 0
+        self.pi = np.zeros((n_step + 1, n_state), dtype=np.int)
 
     def greedy(self, step, state):
         return np.argmax(self.Q[step, state, :])
@@ -30,11 +31,11 @@ class Agent(object):
             setting["n_step"],
             setting["p"],
         )
-        pi = np.zeros((n_step + 1, n_state), dtype=np.int)
+        self.pi[...] = 0
         for step in range(n_step):
             for state in range(n_state):
-                pi[step, state] = self.greedy(step, state)
-        return pi
+                self.pi[step, state] = self.greedy(step, state)
+        return self.pi
 
     def estimate_reward(self, step, state, action, reward):
         N = self.N[step, state, action]
