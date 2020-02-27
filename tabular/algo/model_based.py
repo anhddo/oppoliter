@@ -4,6 +4,9 @@ import numpy.random as npr
 from ..dp_solver import DPSolver
 from ..model import Agent
 
+POLICY_ITERATION = 0
+VALUE_ITERATION = 1
+
 
 class Tracking(object):
     def __init__(self, n_episode, n_step, n_state, n_action):
@@ -12,13 +15,20 @@ class Tracking(object):
         self.N = np.zeros((n_episode, n_step, n_state, n_action))
 
 
-class PolicyIteration(object):
-    def __init__(self, using_previous_estimate=True):
+class ModelBased(object):
+    def __init__(self, algorithm_type=POLICY_ITERATION, using_previous_estimate=True):
+        self.name = 'Policy iteration' if algorithm_type == POLICY_ITERATION else 'Value iteration'
         if using_previous_estimate:
-            self.name = "Policy iteration using previous estimate"
-        else:
-            self.name = "Policy iteration"
+            self.name += " using previous estimate"
         self.using_previous_estimate = using_previous_estimate
+        self.algorithm_type = algorithm_type
+        assert algorithm_type in [POLICY_ITERATION, VALUE_ITERATION]
+
+    def state_value(self, q_estimate, step, pi, n_state):
+        if self.algorithm_type == POLICY_ITERATION:
+            return [q_estimate[step, state, pi[step, state]] for state in range(n_state)]
+        else:
+            return np.max(q_estimate[step], axis=1)
 
     def run(self, c, setting, env):
         n_state, n_action, n_step, p, n_episode = (
@@ -61,10 +71,9 @@ class PolicyIteration(object):
                 reward = agent.R_hat[step, state, action]
                 p_hat = agent.P_hat[step, state, action, :]
                 q_estimate = q_prev_estimate if self.using_previous_estimate else agent.Q
-                v_next_state = [q_estimate[step + 1, state, pi[step + 1, state]] for state in range(n_state)]
+                v_next_state = self.state_value(q_estimate, step + 1, pi, n_state)
                 bonus = c * np.sqrt(bonus_constant / agent.N[step, state, action])
                 q_hat = reward + np.dot(p_hat, v_next_state) + bonus
-
                 agent.Q[step, state, action] = min(n_step, q_hat)
                 #### tracking
                 tracking.N[episode, step, state, action] = agent.N[step, state, action]

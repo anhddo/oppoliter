@@ -7,7 +7,7 @@ from ..model import Agent
 
 class OnlineValueIteration(object):
     def __init__(self):
-        self.name = "Value iteration"
+        self.name = "Online q learning, value iteration"
 
     def run(self, c, setting, env):
         n_state, n_action, n_step, p, alpha, n_episode = (

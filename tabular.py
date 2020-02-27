@@ -10,7 +10,9 @@ import pandas as pd
 import seaborn as sns
 from tqdm import trange
 
-from tabular.algo import PolicyIteration, OnlineValueIteration
+from tabular.algo import model_based
+from tabular.algo.model_based import ModelBased
+from tabular.algo.value_iteration import OnlineValueIteration
 from tabular.finite_mdp import FiniteMDP
 
 if __name__ == "__main__":
@@ -42,8 +44,9 @@ if __name__ == "__main__":
     episode_index = np.arange(start=0, stop=setting["n_episode"], step=step)
     for _ in trange(setting["n_run"]):
         algorithm_set = [
-            PolicyIteration(using_previous_estimate=False),
-            PolicyIteration(using_previous_estimate=True),
+            ModelBased(using_previous_estimate=False),
+            ModelBased(using_previous_estimate=True),
+            ModelBased(algorithm_type=model_based.VALUE_ITERATION, using_previous_estimate=True),
             OnlineValueIteration(),
         ]
         for algorithm in algorithm_set:
