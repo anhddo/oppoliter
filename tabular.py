@@ -44,9 +44,9 @@ if __name__ == "__main__":
     episode_index = np.arange(start=0, stop=setting["n_episode"], step=step)
     for _ in trange(setting["n_run"]):
         algorithm_set = [
-            ModelBased(using_previous_estimate=False),
-            ModelBased(using_previous_estimate=True),
-            ModelBased(algorithm_type=model_based.VALUE_ITERATION, using_previous_estimate=True),
+            # ModelBased(using_previous_estimate=False),
+            ModelBased(algorithm_type=model_based.POLICY_ITERATION, using_previous_estimate=True),
+            # ModelBased(algorithm_type=model_based.VALUE_ITERATION, using_previous_estimate=True),
             OnlineValueIteration(),
         ]
         for algorithm in algorithm_set:
@@ -71,8 +71,7 @@ if __name__ == "__main__":
     sns_plot.set(xlabel="Episodes", ylabel="Cumulative regret")
     sns_plot.legend()
     plt.title(
-        "Episode:{}, action:{}, state:{}, reward-random:{}".format(
-            setting["n_episode"],
+        "Action:{}, state:{}, reward-random:{}".format(
             setting["n_action"],
             setting["n_state"],
             setting["random_reward"],
