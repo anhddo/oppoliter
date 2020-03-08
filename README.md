@@ -1,6 +1,6 @@
 # Optimistic policy iteration
 ## Algorithm
-[Imgur](https://i.imgur.com/cfkk97w.png)
+![Imgur](https://i.imgur.com/cfkk97w.png)
 ## Run
 python tabular.py --n-episode 1000 --n-action 2 --n-step 3 --state-per-stage 2 --n-run 3
 ## Cumulative regret plot
