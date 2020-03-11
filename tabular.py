@@ -26,6 +26,7 @@ if __name__ == "__main__":
     parser.add_argument("--p", type=int, default=0.05)
     parser.add_argument("--alpha", type=int, default=0.1)
     parser.add_argument("--n-run", type=int, default=10)
+    parser.add_argument("--n-pol-eval-step", type=int, default=1)
     parser.add_argument("--random-reward", action="store_true", default=True)
     args = parser.parse_args()
     setting = vars(args)
@@ -45,8 +46,8 @@ if __name__ == "__main__":
     for _ in trange(setting["n_run"]):
         algorithm_set = [
             # ModelBased(using_previous_estimate=False),
-            ModelBased(algorithm_type=model_based.POLICY_ITERATION, using_previous_estimate=True),
-            # ModelBased(algorithm_type=model_based.VALUE_ITERATION, using_previous_estimate=True),
+            ModelBased(algorithm_type=model_based.POLICY_ITERATION, using_previous_estimate=False, evaluation_step=5),
+            ModelBased(algorithm_type=model_based.POLICY_ITERATION, using_previous_estimate=False),
             OnlineValueIteration(),
         ]
         for algorithm in algorithm_set:

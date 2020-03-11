@@ -16,12 +16,14 @@ class Tracking(object):
 
 
 class ModelBased(object):
-    def __init__(self, algorithm_type=POLICY_ITERATION, using_previous_estimate=True):
+    def __init__(self, algorithm_type=POLICY_ITERATION, using_previous_estimate=True, evaluation_step=1):
         self.name = 'Policy iteration' if algorithm_type == POLICY_ITERATION else 'Value iteration'
+        self.name += " num-pol-eval-step:{}".format(evaluation_step)
         if using_previous_estimate:
             self.name += " using previous estimate"
         self.using_previous_estimate = using_previous_estimate
         self.algorithm_type = algorithm_type
+        self.evaluation_step = evaluation_step
         assert algorithm_type in [POLICY_ITERATION, VALUE_ITERATION]
 
     def state_value(self, q_estimate, step, pi, n_state):
@@ -66,20 +68,21 @@ class ModelBased(object):
                 agent.estimate_dynamic(step, state, action, reward, next_state)
                 agent.N[step, state, action] += 1
 
-            for step in reversed(range(n_step)):
-                state, action, reward, next_state = trajectory[step]
-                reward = agent.R_hat[step, state, action]
-                p_hat = agent.P_hat[step, state, action, :]
-                q_estimate = q_prev_estimate if self.using_previous_estimate else agent.Q
-                v_next_state = self.state_value(q_estimate, step + 1, pi, n_state)
-                bonus = c * np.sqrt(bonus_constant / agent.N[step, state, action])
-                q_hat = reward + np.dot(p_hat, v_next_state) + bonus
-                agent.Q[step, state, action] = min(n_step, q_hat)
-                #### tracking
-                tracking.N[episode, step, state, action] = agent.N[step, state, action]
-                tracking.Q[episode, step, state, action] = agent.Q[step, state, action]
-                tracking.bonus[episode, step, state, action] = bonus
-                #### tracking
+            for _ in range(self.evaluation_step):
+                for step in reversed(range(n_step)):
+                    state, action, reward, next_state = trajectory[step]
+                    reward = agent.R_hat[step, state, action]
+                    p_hat = agent.P_hat[step, state, action, :]
+                    q_estimate = q_prev_estimate if self.using_previous_estimate else agent.Q
+                    v_next_state = self.state_value(q_estimate, step + 1, pi, n_state)
+                    bonus = c * np.sqrt(bonus_constant / agent.N[step, state, action])
+                    q_hat = reward + np.dot(p_hat, v_next_state) + bonus
+                    agent.Q[step, state, action] = min(n_step, q_hat)
+                    #### tracking
+                    # tracking.N[episode, step, state, action] = agent.N[step, state, action]
+                    # tracking.Q[episode, step, state, action] = agent.Q[step, state, action]
+                    # tracking.bonus[episode, step, state, action] = bonus
+                    #### tracking
 
             v_policy = dp_solver.policy_value(setting, env, agent)
             regret[episode] = v_optimal[0, start_state] - v_policy[0, start_state]
