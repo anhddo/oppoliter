@@ -47,7 +47,8 @@ if __name__ == "__main__":
         algorithm_set = [
             # ModelBased(using_previous_estimate=False),
             ModelBased(algorithm_type=model_based.POLICY_ITERATION, using_previous_estimate=False, evaluation_step=5),
-            ModelBased(algorithm_type=model_based.POLICY_ITERATION, using_previous_estimate=False),
+            # ModelBased(algorithm_type=model_based.POLICY_ITERATION, using_previous_estimate=False),
+            ModelBased(algorithm_type=model_based.POLICY_ITERATION, using_previous_estimate=False, use_bonus=False),
             OnlineValueIteration(),
         ]
         for algorithm in algorithm_set:

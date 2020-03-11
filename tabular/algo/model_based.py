@@ -16,7 +16,8 @@ class Tracking(object):
 
 
 class ModelBased(object):
-    def __init__(self, algorithm_type=POLICY_ITERATION, using_previous_estimate=True, evaluation_step=1):
+    def __init__(self, algorithm_type=POLICY_ITERATION, using_previous_estimate=True, evaluation_step=1,
+                 use_bonus=True):
         self.name = 'Policy iteration' if algorithm_type == POLICY_ITERATION else 'Value iteration'
         self.name += " num-pol-eval-step:{}".format(evaluation_step)
         if using_previous_estimate:
@@ -24,6 +25,7 @@ class ModelBased(object):
         self.using_previous_estimate = using_previous_estimate
         self.algorithm_type = algorithm_type
         self.evaluation_step = evaluation_step
+        self.use_bonus = use_bonus
         assert algorithm_type in [POLICY_ITERATION, VALUE_ITERATION]
 
     def state_value(self, q_estimate, step, pi, n_state):
@@ -75,7 +77,7 @@ class ModelBased(object):
                     p_hat = agent.P_hat[step, state, action, :]
                     q_estimate = q_prev_estimate if self.using_previous_estimate else agent.Q
                     v_next_state = self.state_value(q_estimate, step + 1, pi, n_state)
-                    bonus = c * np.sqrt(bonus_constant / agent.N[step, state, action])
+                    bonus = c * np.sqrt(bonus_constant / agent.N[step, state, action]) if self.use_bonus else 0
                     q_hat = reward + np.dot(p_hat, v_next_state) + bonus
                     agent.Q[step, state, action] = min(n_step, q_hat)
                     #### tracking
