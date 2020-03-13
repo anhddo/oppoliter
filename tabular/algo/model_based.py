@@ -48,7 +48,7 @@ class ModelBased(object):
         agent = Agent(setting)
         dp_solver = DPSolver()
 
-        tracking = Tracking(n_episode, n_step, n_state, n_action)
+        # tracking = Tracking(n_episode, n_step, n_state, n_action)
 
         env = env
         v_optimal = dp_solver.optimal_value(setting, env)

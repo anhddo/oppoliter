@@ -3,6 +3,7 @@ import json
 import os
 from datetime import datetime
 from os import path
+import sys
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -14,6 +15,7 @@ from tabular.algo import model_based
 from tabular.algo.model_based import ModelBased
 from tabular.algo.value_iteration import OnlineValueIteration
 from tabular.finite_mdp import FiniteMDP
+
 
 if __name__ == "__main__":
     # seed = 1
@@ -27,16 +29,14 @@ if __name__ == "__main__":
     parser.add_argument("--alpha", type=int, default=0.1)
     parser.add_argument("--n-run", type=int, default=10)
     parser.add_argument("--n-pol-eval-step", type=int, default=1)
+    parser.add_argument("--c", type=float, default=0.1)
+    parser.add_argument("--no-save", action="store_true", default=False)
     parser.add_argument("--random-reward", action="store_true", default=True)
     args = parser.parse_args()
     setting = vars(args)
 
-    np.set_printoptions(precision=3, suppress=True)
 
-    now = datetime.now()
-    current_time = now.strftime("%d-%m_%H-%M-%S")
-    img_dir = os.path.join("tmp", current_time)
-    os.makedirs(img_dir, exist_ok=True)
+
 
     env = FiniteMDP(setting)
 
@@ -45,14 +45,11 @@ if __name__ == "__main__":
     episode_index = np.arange(start=0, stop=setting["n_episode"], step=step)
     for _ in trange(setting["n_run"]):
         algorithm_set = [
-            # ModelBased(using_previous_estimate=False),
-            ModelBased(algorithm_type=model_based.POLICY_ITERATION, using_previous_estimate=False, evaluation_step=5),
-            # ModelBased(algorithm_type=model_based.POLICY_ITERATION, using_previous_estimate=False),
-            ModelBased(algorithm_type=model_based.POLICY_ITERATION, using_previous_estimate=False, use_bonus=False),
+            ModelBased(algorithm_type=model_based.POLICY_ITERATION, using_previous_estimate=False),
             OnlineValueIteration(),
         ]
         for algorithm in algorithm_set:
-            regret = algorithm.run(0.1, setting, env)
+            regret = algorithm.run(setting['c'], setting, env)
             regret = regret[::step]
 
             cumulative_regret = np.cumsum(regret)
@@ -65,22 +62,26 @@ if __name__ == "__main__":
                     }
                 )
             )
-    df = pd.concat(df)
-    plt.cla()
-    sns_plot = sns.lineplot(
-        data=df, x="Episode", y="Cumulative_regret", hue="Algorithm"
-    )
-    sns_plot.set(xlabel="Episodes", ylabel="Cumulative regret")
-    sns_plot.legend()
-    plt.title(
-        "Action:{}, state:{}, reward-random:{}".format(
-            setting["n_action"],
-            setting["n_state"],
-            setting["random_reward"],
-        )
-    )
-    plt.show()
+    np.set_printoptions(precision=3, suppress=True)
+    if setting['no_save']:
+        now = datetime.now()
+        current_time = now.strftime("%d-%m_%H-%M-%S")
+        #img_dir = os.path.join("tmp", current_time)
+        img_dir = 'tmp'
+        os.makedirs(img_dir, exist_ok=True)
 
-    sns_plot.get_figure().savefig(path.join(img_dir, "plot.png"))
-    with open(path.join(img_dir, "setting.json"), "w") as f:
-        json.dump(setting, f)
+        df = pd.concat(df)
+        plt.cla()
+        sns_plot = sns.lineplot(
+            data=df, x="Episode", y="Cumulative_regret", hue="Algorithm"
+        )
+        sns_plot.set(xlabel="Episodes", ylabel="Cumulative regret")
+        sns_plot.legend()
+        plt.title(
+            "Action:{}, state:{}, reward-random:{}".format(
+                setting["n_action"],
+                setting["n_state"],
+                setting["random_reward"],
+            )
+        )
+        plt.savefig(path.join(img_dir, "{}.png".format(" ".join(sys.argv[1:]), '.png')))
