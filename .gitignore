@@ -1,4 +1,7 @@
 /.idea/
+.vscode/
+tags
+*.sh
 .DS_Store
 /tmp/
 /notebook/.ipynb_checkpoints/

@@ -5,7 +5,7 @@ from ..dp_solver import DPSolver
 from ..model import Agent
 
 
-class OnlineValueIteration(object):
+class ModelFree(object):
     def __init__(self):
         self.name = "Chi Jin, et al 2018"
 
@@ -45,4 +45,4 @@ class OnlineValueIteration(object):
 
             v_policy = dp_solver.policy_value(setting, env, agent)
             regret[episode] = v_optimal[0, start_state] - v_policy[0, start_state]
-        return regret
+        return regret, None

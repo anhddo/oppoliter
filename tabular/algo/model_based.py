@@ -8,13 +8,6 @@ POLICY_ITERATION = 0
 VALUE_ITERATION = 1
 
 
-class Tracking(object):
-    def __init__(self, n_episode, n_step, n_state, n_action):
-        self.bonus = np.zeros((n_episode, n_step, n_state, n_action))
-        self.Q = np.ones((n_episode, n_step, n_state, n_action)) * n_step
-        self.N = np.zeros((n_episode, n_step, n_state, n_action))
-
-
 class ModelBased(object):
     def __init__(self, algorithm_type=POLICY_ITERATION, using_previous_estimate=True, evaluation_step=1,
                  use_bonus=True):
@@ -48,17 +41,19 @@ class ModelBased(object):
         agent = Agent(setting)
         dp_solver = DPSolver()
 
-        # tracking = Tracking(n_episode, n_step, n_state, n_action)
+        ##analysis
+        delta = []
+        ##analysis
 
         env = env
         v_optimal = dp_solver.optimal_value(setting, env)
-        q_prev_estimate = np.zeros(agent.Q.shape)
         regret = np.zeros(n_episode)
         for episode in range(n_episode):
             pi = agent.policy_greedy()
             start_state = np.random.choice(setting["state_per_stage"], size=1)[0]
             state = start_state
             trajectory = []
+            q_prev_estimate = np.copy(agent.Q)
             for step in range(n_step):
                 action = pi[step, state]
                 next_state, reward = env.step(step, state, action)
@@ -80,13 +75,14 @@ class ModelBased(object):
                     bonus = c * np.sqrt(bonus_constant / agent.N[step, state, action]) if self.use_bonus else 0
                     q_hat = reward + np.dot(p_hat, v_next_state) + bonus
                     agent.Q[step, state, action] = min(n_step, q_hat)
-                    #### tracking
-                    # tracking.N[episode, step, state, action] = agent.N[step, state, action]
-                    # tracking.Q[episode, step, state, action] = agent.Q[step, state, action]
-                    # tracking.bonus[episode, step, state, action] = bonus
-                    #### tracking
+
 
             v_policy = dp_solver.policy_value(setting, env, agent)
             regret[episode] = v_optimal[0, start_state] - v_policy[0, start_state]
+            ##analysis
+            delta.append(agent.Q[0, start_state, pi[0, start_state]] - v_optimal[0, start_state])
+            ##analysis
 
-        return regret
+            info = {'delta': delta}
+
+        return regret, info
