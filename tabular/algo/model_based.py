@@ -12,9 +12,9 @@ class ModelBased(object):
     def __init__(self, algorithm_type=POLICY_ITERATION, using_previous_estimate=True, evaluation_step=1,
                  use_bonus=True):
         self.name = 'Policy iteration' if algorithm_type == POLICY_ITERATION else 'Value iteration'
-        self.name += " num-pol-eval-step:{}".format(evaluation_step)
-        if using_previous_estimate:
-            self.name += " using previous estimate"
+        #self.name += " num-pol-eval-step:{}".format(evaluation_step)
+        #if using_previous_estimate:
+        #    self.name += " using previous estimate"
         self.using_previous_estimate = using_previous_estimate
         self.algorithm_type = algorithm_type
         self.evaluation_step = evaluation_step
