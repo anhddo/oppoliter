@@ -77,7 +77,6 @@ class LeastSquareModel(object):
         # self.w = npr.random((D, 1)) * 2 - 2
         self.reset_covarian()
         self.s = np.zeros((D, 1))
-        self.trajectories = Trajectory(D)
 
     def reset_sum_vector(self):
         self.s[...] = 0
@@ -192,7 +191,7 @@ def train(env, algo, model, ftr_transform, n_episode):
     ]
     best_reward = 0
     rewards = []
-    for episode in trange(n_episode):
+    for episode in range(n_episode):
         state = env.reset()
         state = ftr_transform.transform(state)
         terminal = False
@@ -204,6 +203,7 @@ def train(env, algo, model, ftr_transform, n_episode):
             next_state = ftr_transform.transform(next_state)
             trajectory_per_action[action].append(state, reward, next_state, terminal)
             state = next_state
+        print(episode, episode_reward, trajectory_per_action[0].index, trajectory_per_action[1].index)
         algo.update(model, trajectory_per_action)
         rewards.append(episode_reward)
     return rewards

@@ -6,11 +6,14 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.kernel_approximation import RBFSampler
 mpl.use("Agg")
 import numpy as np
+import numpy.random as npr
 from numpy.linalg import inv
 from tqdm import trange
 from sklearn.pipeline import FeatureUnion
 from datetime import datetime
 import pickle
+from sklearn.preprocessing import MinMaxScaler
+
 
 
 class FeatureTransformer:
@@ -38,6 +41,37 @@ class FeatureTransformer:
     def transform(self, state):
         scaled_state = self.scaler.transform(np.atleast_2d(state))
         return self.featurizer.transform(scaled_state)
+
+
+class FourierTransform:
+    def __init__(self, n, d, env):
+        self.scaler = self.create_scaler(env)
+        s = np.arange(n)
+        a = [s]*d
+        c = np.meshgrid(*a)
+        c = [i.flatten() for i in c]
+        self.k = np.stack(c).T
+        self.dimension = self.k.shape[0]
+
+    def create_scaler(self, env):
+        terminal = True
+        observation_space = env.observation_space.shape[0]
+        self.observation_space = observation_space
+        state_array = np.zeros((20000, observation_space))
+        for t in range(state_array.shape[0]):
+            if terminal :
+                state = env.reset()
+            action = npr.randint(2)
+            state, reward, terminal, info = env.step(action)
+            state_array[t] = state
+        scaler = MinMaxScaler()
+        scaler.fit(state_array)
+        return scaler
+
+
+    def transform(self, ftr):
+        ftr = self.scaler.transform(ftr.reshape(-1, self.observation_space))
+        return np.cos(np.pi * self.k.dot(ftr.T)).reshape(-1, self.dimension)
 
 
 class Trajectory:
@@ -124,7 +158,6 @@ class Model:
             lm.trajectories = None
 
     def load(self, path):
-        print(path)
         with open(path, 'rb') as f:
             tmp_dict = pickle.load(f)
             self.__dict__.update(tmp_dict)
@@ -163,29 +196,46 @@ class AverageReward:
             assert Q.shape[1] == 1
         return np.min(Q), np.max(Q)
 
+def test(model, env, ftr_transform):
+    episode_reward = 0
+    state = env.reset()
+    state = ftr_transform.transform(state)
+    while True:
+        action = model.choose_action(state)[0]
+        next_state, reward, terminal, info = env.step(action)
+        episode_reward += reward
+        next_state = ftr_transform.transform(next_state)
+        state = next_state
+        if terminal:
+            return episode_reward
 
-def train(env, algo, model, ftr_transform, n_step):
+def train(env, algo, model, ftr_transform, setting):
     trajectory_per_action = [
         Trajectory(ftr_transform.dimension) for _ in model.action_model
     ]
     episode_reward = 0
     rewards = [0] * 10
-    T = n_step
     terminal = True
     q_min,q_max=222,0
-    for t in range(T):
+    last_t = 0
+    for t in range(setting['n_step']):
         if terminal:
+            eval_reward = test(model, env,ftr_transform)
             state = env.reset()
             state = ftr_transform.transform(state)
             rewards.append(episode_reward)
-            print(int(np.mean(rewards)), episode_reward, t)
+            print(int(np.mean(rewards)), episode_reward, eval_reward, t)
             q_min,q_max=222,0
             episode_reward = 0
             del rewards[0]
+            model.save(setting['model_path'])
+            last_t = t
         action = model.choose_action(state)[0]
         next_state, reward, terminal, info = env.step(action)
         episode_reward += reward
         next_state = ftr_transform.transform(next_state)
+        if terminal:
+            reward = t - last_t - 200
         trajectory_per_action[action].append(state, reward, next_state, terminal)
         state = next_state
         qmin, qmax = algo.update(model, trajectory_per_action)

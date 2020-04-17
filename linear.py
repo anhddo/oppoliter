@@ -11,12 +11,14 @@ from datetime import datetime
 import pandas as pd
 import seaborn as sns
 import sys
+from linear.avg_reward import FourierTransform
 from linear.linear_model import Model, ValueIteration, PolicyIteration, FeatureTransformer, train
 
 
 if __name__ == "__main__":
     env = gym.make("CartPole-v0")
     parser = argparse.ArgumentParser(description="Finite-horizon MDP")
+    parser.add_argument("--fourier-value", type=int, default=4)
     parser.add_argument("--n-episode", type=int, default=1000)
     parser.add_argument("--n-component", type=int, default=100)
     parser.add_argument("--n-run", type=int, default=10)
@@ -26,7 +28,9 @@ if __name__ == "__main__":
     #algo_set = [ValueIteration(), PolicyIteration()]
     observation_space = env.observation_space.shape[0]
     action_space = env.action_space.n
-    ftr_transform = FeatureTransformer(observation_space, n_components=setting['n_component'])
+    #ftr_transform = FeatureTransformer(observation_space, n_components=setting['n_component'])
+    ftr_transform = FourierTransform(setting['fourier_value'], observation_space, env)
+    print('dimension:', ftr_transform.dimension)
     n_episode = setting['n_episode']
     df = []
     for _ in trange(setting['n_run']):
