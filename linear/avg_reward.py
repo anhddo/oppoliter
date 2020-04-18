@@ -16,33 +16,6 @@ from sklearn.preprocessing import MinMaxScaler
 
 
 
-class FeatureTransformer:
-
-    """
-    FeatureTransformer class:
-    Arguments:- 
-      env = Environment
-      n_components = Number of components each RBFSampler will contain
-      samples = Amount of training samples to generate
-    """
-
-    def __init__(self, observation_space, n_components=100):
-        train_states = np.random.random((20000, observation_space)) * 2 - 2
-        scaler = StandardScaler()
-        scaler.fit(train_states)
-        featurizer = FeatureUnion(
-            [(str(i), RBFSampler(1, n_components)) for i in range(observation_space)]
-        )
-        train_features = featurizer.fit_transform(scaler.transform(train_states))
-        self.dimension = train_features.shape[1]
-        self.featurizer = featurizer
-        self.scaler = scaler
-
-    def transform(self, state):
-        scaled_state = self.scaler.transform(np.atleast_2d(state))
-        return self.featurizer.transform(scaled_state)
-
-
 class FourierTransform:
     def __init__(self, n, d, env):
         self.scaler = self.create_scaler(env)
@@ -52,6 +25,7 @@ class FourierTransform:
         c = [i.flatten() for i in c]
         self.k = np.stack(c).T
         self.dimension = self.k.shape[0]
+
 
     def create_scaler(self, env):
         terminal = True
@@ -106,8 +80,8 @@ class Trajectory:
 
 class LeastSquareModel(object):
     def __init__(self, D):
-        self.w = np.zeros((D, 1))
-        # self.w = npr.random((D, 1)) * 2 - 2
+        #self.w = np.zeros((D, 1))
+        self.w = npr.random((D, 1)) * 2 - 2
         self.reset_covarian()
         self.s = np.zeros((D, 1))
         self.trajectories = Trajectory(D)
@@ -218,18 +192,26 @@ def train(env, algo, model, ftr_transform, setting):
     terminal = True
     q_min,q_max=222,0
     last_t = 0
+
+    reward_track, time_step = [], []
+
     for t in range(setting['n_step']):
         if terminal:
-            eval_reward = test(model, env,ftr_transform)
+            #eval_reward = test(model, env,ftr_transform)
             state = env.reset()
             state = ftr_transform.transform(state)
             rewards.append(episode_reward)
-            print(int(np.mean(rewards)), episode_reward, eval_reward, t)
+            #print(int(np.mean(rewards)), episode_reward, eval_reward, t)
+            print(int(np.mean(rewards)), episode_reward, t)
+            reward_track.append(episode_reward)
+            time_step.append(t)
             q_min,q_max=222,0
             episode_reward = 0
             del rewards[0]
             model.save(setting['model_path'])
             last_t = t
+            with open(path.join('tmp', setting['save_dir_name'], 'result{}.pkl'.format(setting['result_file'])), 'wb') as f:
+                pickle.dump([reward_track, time_step], f)
         action = model.choose_action(state)[0]
         next_state, reward, terminal, info = env.step(action)
         episode_reward += reward
@@ -241,6 +223,6 @@ def train(env, algo, model, ftr_transform, setting):
         qmin, qmax = algo.update(model, trajectory_per_action)
         q_min = min(qmin, q_min)
         q_max = max(qmax, q_max)
-    return rewards
+    return reward_track, time_step
 
 
