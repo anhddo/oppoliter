@@ -26,7 +26,7 @@ import timeit
 
 
 if __name__ == "__main__":
-    print('version fourier2')
+    print('version pytorch')
     parser = argparse.ArgumentParser(description="Finite-horizon MDP")
     parser.add_argument("--save-dir")
     parser.add_argument("--fourier-order", type=int, default=4)

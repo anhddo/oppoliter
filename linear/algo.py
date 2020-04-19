@@ -183,9 +183,7 @@ def train(env, algo, model, ftr_transform, setting):
     episode_reward = 0
     rewards = [0] * 10
     terminal = True
-    q_min,q_max=222,0
     last_t = 0
-
     reward_track, time_step = [], []
 
     for t in range(setting['step']):
@@ -213,8 +211,6 @@ def train(env, algo, model, ftr_transform, setting):
         trajectory_per_action[action].append(state, reward, next_state, terminal)
         state = next_state
         qmin, qmax = algo.update(model, trajectory_per_action)
-        q_min = min(qmin, q_min)
-        q_max = max(qmax, q_max)
     return reward_track, time_step
 
 
