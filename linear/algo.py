@@ -202,7 +202,7 @@ def train(env, algo, model, ftr_transform, setting):
             q_min,q_max=222,0
             episode_reward = 0
             del rewards[0]
-            model.save(path.join(setting['tmp_dir'], 'model.pkl'))
+            #model.save(path.join(setting['tmp_dir'], 'model.pkl'))
             last_t = t
         action = model.choose_action(state)[0]
         next_state, reward, terminal, info = env.step(action)
