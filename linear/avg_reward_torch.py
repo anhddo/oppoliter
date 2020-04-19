@@ -88,17 +88,13 @@ class LeastSquareModel(object):
         self.cov = 1e-3 * torch.eye(self.w.shape[0], dtype=torch.float, device=device)
         self.inv_cov = torch.inverse(self.cov)
 
-    def reset_sum_vector(self):
-        self.s[...] = 0
-
-
 
     def predict(self, x):
         Q = x.mm(self.w)
         b = self.bonus(x)
         Q = Q + b
         assert Q.shape == b.shape
-        return Q.reshape(-1, 1)
+        return Q
 
     def bonus(self, x):
         v = torch.sqrt(x.mm(self.inv_cov).mm(x.T).diagonal())
@@ -202,8 +198,8 @@ def train(env, algo, model, ftr_transform, trajectory_per_action, setting):
             del rewards[0]
             model.save(setting['model_path'])
             last_t = t
-            with open(path.join('tmp', setting['save_dir_name'], 'result{}.pkl'.format(setting['result_file'])), 'wb') as f:
-                pickle.dump([reward_track, time_step], f)
+            #with open(path.join('tmp', setting['save_dir_name'], 'result{}.pkl'.format(setting['result_file'])), 'wb') as f:
+            #    pickle.dump([reward_track, time_step], f)
         action = model.choose_action(state).cpu().numpy()[0]
         next_state, reward, terminal, info = env.step(action)
         episode_reward += reward
