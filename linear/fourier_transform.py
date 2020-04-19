@@ -1,0 +1,50 @@
+import os
+from os import path
+import matplotlib as mpl
+import numpy as np
+from sklearn.preprocessing import StandardScaler
+from sklearn.kernel_approximation import RBFSampler
+mpl.use("Agg")
+import numpy as np
+import numpy.random as npr
+from numpy.linalg import inv
+from tqdm import trange
+from sklearn.pipeline import FeatureUnion
+from datetime import datetime
+import pickle
+from sklearn.preprocessing import MinMaxScaler
+
+
+
+class FourierTransform:
+    def __init__(self, n, d, env):
+        self.scaler = self.create_scaler(env)
+        s = np.arange(n)
+        a = [s]*d
+        c = np.meshgrid(*a)
+        c = [i.flatten() for i in c]
+        self.k = np.stack(c).T
+        self.dimension = self.k.shape[0]
+
+
+    def create_scaler(self, env):
+        terminal = True
+        observation_space = env.observation_space.shape[0]
+        self.observation_space = observation_space
+        state_array = np.zeros((20000, observation_space))
+        for t in range(state_array.shape[0]):
+            if terminal :
+                state = env.reset()
+            action = npr.randint(2)
+            state, reward, terminal, info = env.step(action)
+            state_array[t] = state
+        scaler = MinMaxScaler()
+        scaler.fit(state_array)
+        return scaler
+
+
+    def transform(self, ftr):
+        ftr = self.scaler.transform(ftr.reshape(-1, self.observation_space))
+        return np.cos(np.pi * self.k.dot(ftr.T)).reshape(-1, self.dimension)
+
+

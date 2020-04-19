@@ -84,7 +84,6 @@ class LeastSquareModel(object):
         self.w = npr.random((D, 1)) * 2 - 2
         self.reset_covarian()
         self.s = np.zeros((D, 1))
-        self.trajectories = Trajectory(D)
 
     def reset_sum_vector(self):
         self.s[...] = 0
@@ -93,8 +92,6 @@ class LeastSquareModel(object):
         self.cov = 1e-3 * np.eye(self.w.shape[0])
         self.inv_cov = inv(self.cov)
 
-    def reset_trajectory(self):
-        self.trajectories.reset()
 
     def predict(self, x):
         Q = x.dot(self.w)
@@ -106,10 +103,6 @@ class LeastSquareModel(object):
     def bonus(self, x):
         v = np.sqrt(x.dot(self.inv_cov).dot(x.T).diagonal())
         return v.reshape(-1, 1)
-
-    def append(self, state, reward, next_state, terminal):
-        self.trajectories.append(state, reward, next_state, terminal)
-
 
 
 class Model:
@@ -195,23 +188,22 @@ def train(env, algo, model, ftr_transform, setting):
 
     reward_track, time_step = [], []
 
-    for t in range(setting['n_step']):
+    for t in range(setting['step']):
         if terminal:
             #eval_reward = test(model, env,ftr_transform)
             state = env.reset()
             state = ftr_transform.transform(state)
             rewards.append(episode_reward)
             #print(int(np.mean(rewards)), episode_reward, eval_reward, t)
-            print(int(np.mean(rewards)), episode_reward, t)
+            print('===avg reward:',int(np.mean(rewards)), 'train reward:', episode_reward,
+                    'step:',t, '===')
             reward_track.append(episode_reward)
             time_step.append(t)
             q_min,q_max=222,0
             episode_reward = 0
             del rewards[0]
-            model.save(setting['model_path'])
+            model.save(path.join(setting['tmp_dir'], 'model.pkl'))
             last_t = t
-            with open(path.join('tmp', setting['save_dir_name'], 'result{}.pkl'.format(setting['result_file'])), 'wb') as f:
-                pickle.dump([reward_track, time_step], f)
         action = model.choose_action(state)[0]
         next_state, reward, terminal, info = env.step(action)
         episode_reward += reward
