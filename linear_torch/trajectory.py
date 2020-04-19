@@ -17,8 +17,8 @@ import torch
 
 
 class Trajectory:
-    def __init__(self, D, device):
-        max_unit = 100000
+    def __init__(self, D, device, step=10000):
+        max_unit = step
         self.index = -1
         self.state = torch.zeros(max_unit, D, dtype=torch.double, device=device)
         self.next_state = torch.zeros(max_unit, D, dtype=torch.double, device=device)

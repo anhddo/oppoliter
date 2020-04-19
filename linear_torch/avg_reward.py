@@ -76,7 +76,6 @@ def train(env, algo, model, ftr_transform, trajectory_per_action, setting):
             state = env.reset()
             state = ftr_transform.transform(state)
             rewards.append(episode_reward)
-            print(int(np.mean(rewards)), episode_reward, t)
             print('===avg reward:',int(np.mean(rewards)), 'train reward:', episode_reward,
                     'step:',t, '===')
             reward_track.append(episode_reward)
@@ -91,7 +90,7 @@ def train(env, algo, model, ftr_transform, trajectory_per_action, setting):
         episode_reward += reward
         next_state = ftr_transform.transform(next_state)
         if terminal:
-            reward = t - last_t - 200
+            reward = t - last_t - env._max_episode_steps
         trajectory_per_action[action].append(state, reward, next_state, terminal)
         state = next_state
         algo.update(model, trajectory_per_action)

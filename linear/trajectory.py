@@ -19,8 +19,8 @@ from sklearn.preprocessing import MinMaxScaler
 
 
 class Trajectory:
-    def __init__(self, D):
-        max_unit = 100000
+    def __init__(self, D, max_step):
+        max_unit = max_step
         self.index = -1
         self.state = np.zeros((max_unit, D))
         self.next_state = np.zeros((max_unit, D))

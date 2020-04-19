@@ -20,7 +20,7 @@ import torch
 from linear_torch.fourier_transform import FourierTransform
 from linear_torch.lm import Model
 from linear_torch.trajectory import Trajectory
-from linear_torch.algo import AverageReward, train
+from linear_torch.avg_reward import AverageReward, train
 import pickle
 import timeit
 
@@ -60,12 +60,12 @@ if __name__ == "__main__":
 
     algo = AverageReward(1e-3, ftr_transform.dimension, device)
     run_time = []
+    trajectory_per_action = [Trajectory(ftr_transform.dimension, device, setting['step']) for _ in range(action_space)]
     for i in range(setting['repeat']):
         start = timeit.default_timer()
         model = Model(ftr_transform.dimension, action_space, device)
-        trajectory_per_action = [
-            Trajectory(ftr_transform.dimension, device) for _ in model.action_model
-        ]
+        for trajectory in trajectory_per_action:
+            trajectory.reset()
         reward_track, time_step = train(env, algo, model, ftr_transform, trajectory_per_action, setting)
         model.save(setting['model_path'])
         with open(path.join(parent_dir, 'result{}.pkl'.format(i)), 'wb') as f:
@@ -74,8 +74,4 @@ if __name__ == "__main__":
         run_time.append('round:{}, {} s.'.format(i, stop - start))
         print('Run time:')
         print('\n'.join(run_time))
-
-
-
-
 

@@ -32,7 +32,7 @@ class FourierTransform:
         terminal = True
         observation_space = env.observation_space.shape[0]
         self.observation_space = observation_space
-        state_array = np.zeros((20000, observation_space))
+        state_array = np.zeros((50000, observation_space))
         for t in range(state_array.shape[0]):
             if terminal :
                 state = env.reset()
