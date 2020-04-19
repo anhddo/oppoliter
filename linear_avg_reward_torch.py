@@ -18,6 +18,7 @@ import torch
 
 
 if __name__ == "__main__":
+    np.random.seed(0)
     print('version fourier2')
     env = gym.make("CartPole-v0")
     parser = argparse.ArgumentParser(description="Finite-horizon MDP")
@@ -33,8 +34,8 @@ if __name__ == "__main__":
     observation_space = env.observation_space.shape[0]
     action_space = env.action_space.n
     device = torch.device('cpu')
-    if torch.cuda.is_available():
-        device = torch.device('cuda')
+    #if torch.cuda.is_available():
+    #    device = torch.device('cuda')
     #ftr_transform = FeatureTransformer(observation_space, n_components=setting['n_component'])
     ftr_transform = FourierTransform(setting['fourier_value'], observation_space, env, device)
     model = Model(ftr_transform.dimension, action_space, device)

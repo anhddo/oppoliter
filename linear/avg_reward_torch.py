@@ -47,17 +47,17 @@ class FourierTransform:
     def transform(self, ftr):
         ftr = self.scaler.transform(ftr.reshape(-1, self.observation_space))
         ftr = np.cos(np.pi * self.k.dot(ftr.T)).reshape(-1, self.dimension)
-        return torch.from_numpy(ftr).type(torch.float).to(self.device)
+        return torch.from_numpy(ftr).type(torch.double).to(self.device)
 
 
 class Trajectory:
     def __init__(self, D, device):
         max_unit = 100000
         self.index = -1
-        self.state = torch.zeros(max_unit, D, dtype=torch.float, device=device)
-        self.next_state = torch.zeros(max_unit, D, dtype=torch.float, device=device)
-        self.reward = torch.zeros(max_unit, dtype=torch.float, device=device)
-        self.terminal = torch.zeros(max_unit, dtype=torch.float, device=device)
+        self.state = torch.zeros(max_unit, D, dtype=torch.double, device=device)
+        self.next_state = torch.zeros(max_unit, D, dtype=torch.double, device=device)
+        self.reward = torch.zeros(max_unit, dtype=torch.double, device=device)
+        self.terminal = torch.zeros(max_unit, dtype=torch.double, device=device)
         self.max_unit = max_unit
 
     def append(self, state, reward, next_state, terminal):
@@ -83,9 +83,9 @@ class Trajectory:
 class LeastSquareModel(object):
     def __init__(self, D, device):
         #self.w = np.zeros((D, 1))
-        self.w = torch.rand(D, 1, dtype=torch.float, device=device) * 2 - 2
-        self.s = torch.zeros(D, 1, dtype=torch.float, device=device)
-        self.cov = 1e-3 * torch.eye(self.w.shape[0], dtype=torch.float, device=device)
+        self.w = torch.rand(D, 1, dtype=torch.double, device=device) * 2 - 2
+        self.s = torch.zeros(D, 1, dtype=torch.double, device=device)
+        self.cov = 1e-3 * torch.eye(self.w.shape[0], dtype=torch.double, device=device)
         self.inv_cov = torch.inverse(self.cov)
 
 
@@ -98,7 +98,7 @@ class LeastSquareModel(object):
 
     def bonus(self, x):
         v = torch.sqrt(x.mm(self.inv_cov).mm(x.T).diagonal())
-        return v.reshape(-1, 1)
+        return v.view(-1, 1)
 
 
 
@@ -144,17 +144,20 @@ class AverageReward:
             state, reward, next_state, terminal = trajectory.get_past_data()
             if state.shape[0] == 0:
                 continue
-            reward = reward.reshape(-1, 1)
-            terminal = terminal.reshape(-1, 1)
+            reward = reward.view(-1, 1)
+            terminal = terminal.view(-1, 1)
             Q_next = model.predict(next_state)
 
             V_next, _ = torch.max(Q_next, dim=1)
             b = ls_model.bonus(state)
-            V_next = torch.clamp(V_next, 0, 200).view(state.shape[0], 1)
+            V_next = torch.clamp(V_next, 0, 200).view(-1, 1)
+            #print(state.shape, reward.shape, V_next.shape)
             ls_model.cov = state.T.mm(state) + self.regulization_matrix
             ls_model.inv_cov = torch.inverse(ls_model.cov)
             Q = (reward + GAMMA * V_next) * (1 - terminal)
+            #print(torch.max(Q), torch.max(V_next), torch.max(reward), GAMMA, torch.max(terminal))
             ls_model.w = ls_model.inv_cov.mm(state.T.mm(Q))
+            #print('w ',torch.max(ls_model.w))
             assert ls_model.cov.shape == (model.D, model.D)
             assert ls_model.inv_cov.shape == (model.D, model.D)
             assert ls_model.w.shape == (model.D, 1)
