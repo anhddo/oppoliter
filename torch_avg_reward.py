@@ -1,15 +1,6 @@
 import argparse
 import os
 from os import path
-
-import matplotlib as mpl
-
-mpl.use("Agg")
-import gym
-#from linear.fourier_transform import FourierTransform
-#from linear.lm import Model
-#from linear.trajectory import Trajectory
-#from linear.algo import AverageReward, train
 import torch
 from linear_torch.fourier_transform import FourierTransform
 from linear_torch.lm import Model
@@ -21,11 +12,11 @@ import timeit
 
 
 if __name__ == "__main__":
-    print('version pytorch')
     parser = argparse.ArgumentParser(description="Finite-horizon MDP")
     parser.add_argument("--save-dir")
     parser.add_argument("--fourier-order", type=int, default=4)
     parser.add_argument("--env-name", default='CartPole-v0')
+    parser.add_argument("--render", action="store_true", default=False)
     parser.add_argument("--step", type=int, default=10000)
     parser.add_argument("--repeat", type=int, default=1)
     parser.add_argument("--discount", type=float, default=0.999)
@@ -34,6 +25,11 @@ if __name__ == "__main__":
     setting['tmp_dir'] = '/tmp/oppoliter'
 
     env = EnvWrapper(setting['env_name'])
+    print('---------------------')
+    print('Pytorch version')
+    print('Environment:', env.env_name)
+    print('observation_space:', env.observation_space, 'action_space:', env.action_space)
+    print('---------------------')
     device = torch.device('cpu')
     if torch.cuda.is_available():
         device = torch.device('cuda')

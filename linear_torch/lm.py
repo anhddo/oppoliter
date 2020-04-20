@@ -9,24 +9,28 @@ import torch
 
 class LeastSquareModel(object):
     def __init__(self, D, device):
-        #self.w = np.zeros((D, 1))
-        self.w = torch.rand(D, 1, dtype=torch.double, device=device) * 2 - 2
+        self.w = torch.zeros(D, 1, dtype=torch.double, device=device)
+        #self.w = torch.rand(D, 1, dtype=torch.double, device=device) * 2 - 2
         self.s = torch.zeros(D, 1, dtype=torch.double, device=device)
         self.cov = 1e-3 * torch.eye(self.w.shape[0], dtype=torch.double, device=device)
         self.inv_cov = torch.inverse(self.cov)
 
 
-    def predict(self, x):
+    def predict(self, x, bonus=True):
         Q = x.mm(self.w)
-        b = self.bonus(x)
-        Q = Q + b
-        assert Q.shape == b.shape
+        if bonus:
+            b = self.bonus(x)
+            Q = Q + b
+            assert Q.shape == b.shape
         return Q
 
     def bonus(self, x):
         v = torch.sqrt(x.mm(self.inv_cov).mm(x.T).diagonal())
         return v.view(-1, 1)
 
+    def convert_to_cpu(self):
+        self.w = self.w.cpu()
+        self.s = self.s.cpu()
 
 
 class Model:
@@ -35,12 +39,12 @@ class Model:
         self.action_model = [LeastSquareModel(ftr_size, device) for _ in range(action_space)]
         self.D = ftr_size
 
-    def choose_action(self, state):
-        m = self.predict(state)
+    def choose_action(self, state, bonus=True):
+        m = self.predict(state, bonus)
         return torch.argmax(m, axis=1)
 
-    def predict(self, state):
-        m = [m.predict(state) for m in self.action_model]
+    def predict(self, state, bonus=True):
+        m = [m.predict(state, bonus) for m in self.action_model]
         m = torch.stack(m, dim=1).squeeze(2)
         return m
 
@@ -57,6 +61,9 @@ class Model:
     def save(self, path):
         with open(path, 'wb') as f:
             self.clear_trajectory()
+            for lm in self.action_model:
+                lm.convert_to_cpu()
+                del lm.cov, lm.inv_cov
             pickle.dump(self.__dict__, f)
 
 

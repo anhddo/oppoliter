@@ -5,8 +5,9 @@ import matplotlib as mpl
 
 mpl.use("Agg")
 import gym
-from linear_numpy.lm import Model
+from linear_torch.lm import Model
 import pickle
+import torch
 
 
 if __name__ == "__main__":
@@ -20,11 +21,13 @@ if __name__ == "__main__":
     observation_space = env.observation_space.shape[0]
     action_space = env.action_space.n
     #ftr_transform = FourierTransform(setting['fourier_range'], observation_space, env)
-    model = Model(0, 0)
+    device = torch.device('cpu')
+    model = Model(0, 0, device)
     model.load(path.join(setting['path'], 'model.pkl'))
     ftr_transform = None
     with open(path.join(setting['path'], 'ftr_transform'), 'rb') as f:
         ftr_transform = pickle.load(f)
+        ftr_transform.device = device
 
     episode_reward = 0
     terminal = True
@@ -35,8 +38,7 @@ if __name__ == "__main__":
             print(episode_reward)
             episode_reward = 0
         env.render()
-        action = model.choose_action(state)[0]
-        print(action)
+        action = model.choose_action(state, bonus=False).numpy()[0]
         next_state, reward, terminal, info = env.step(action)
         episode_reward += reward
         next_state = ftr_transform.transform(next_state)

@@ -16,6 +16,7 @@ class AverageReward:
         self.total_step = setting['step']
         self.discount = setting['discount']
         self.model = model
+        self.render = setting['render']
 
 
     def train(self):
@@ -27,12 +28,13 @@ class AverageReward:
 
         state=None
         for t in range(self.total_step):
+            if self.render:
+                self.env.env.render()
             if terminal:
                 state = self.env.reset()
                 state = self.ftr_transform.transform(state)
                 rewards.append(episode_reward)
-                print('===avg reward:',int(np.mean(rewards)),
-                        'true reward:', episode_reward,
+                print('===true reward:', episode_reward,
                         'modified reward:', sum_modified_reward,
                         'step:',t, '===')
                 reward_track.append(episode_reward)
@@ -61,7 +63,7 @@ class AverageReward:
 
             V_next, _ = torch.max(Q_next, dim=1)
             b = ls_model.bonus(state)
-            V_next = torch.clamp(V_next, 0, 200).view(-1, 1)
+            V_next = torch.clamp(V_next, self.env.min_clamp, self.env.max_clamp).view(-1, 1)
             ls_model.cov = state.T.mm(state) + self.regulization_matrix
             ls_model.inv_cov = torch.inverse(ls_model.cov)
             Q = (reward + self.discount * V_next) * (1 - terminal)

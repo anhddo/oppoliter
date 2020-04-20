@@ -5,6 +5,8 @@ tags
 .DS_Store
 /tmp/
 /notebook/.ipynb_checkpoints/
+/notebook/*.png
+train_result/
 .ipynb_checkpoints/
 **/__pycache__
 
