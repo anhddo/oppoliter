@@ -6,12 +6,10 @@ import torch
 
 
 
-
 class LeastSquareModel(object):
     def __init__(self, D, device):
         self.w = torch.zeros(D, 1, dtype=torch.double, device=device)
         #self.w = torch.rand(D, 1, dtype=torch.double, device=device) * 2 - 2
-        self.s = torch.zeros(D, 1, dtype=torch.double, device=device)
         self.cov = 1e-3 * torch.eye(self.w.shape[0], dtype=torch.double, device=device)
         self.inv_cov = torch.inverse(self.cov)
 
@@ -30,7 +28,8 @@ class LeastSquareModel(object):
 
     def convert_to_cpu(self):
         self.w = self.w.cpu()
-        self.s = self.s.cpu()
+        self.cov = self.cov.cpu()
+        self.inv_cov = self.inv_cov.cpu()
 
 
 class Model:
@@ -63,7 +62,7 @@ class Model:
             self.clear_trajectory()
             for lm in self.action_model:
                 lm.convert_to_cpu()
-                del lm.cov, lm.inv_cov
+                #del lm.cov, lm.inv_cov
             pickle.dump(self.__dict__, f)
 
 

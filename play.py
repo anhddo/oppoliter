@@ -38,7 +38,7 @@ if __name__ == "__main__":
             print(episode_reward)
             episode_reward = 0
         env.render()
-        action = model.choose_action(state, bonus=False).numpy()[0]
+        action = model.choose_action(state, bonus=True).numpy()[0]
         next_state, reward, terminal, info = env.step(action)
         episode_reward += reward
         next_state = ftr_transform.transform(next_state)

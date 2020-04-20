@@ -34,9 +34,9 @@ class AverageReward:
                 state = self.env.reset()
                 state = self.ftr_transform.transform(state)
                 rewards.append(episode_reward)
-                print('===true reward:', episode_reward,
-                        'modified reward:', sum_modified_reward,
-                        'step:',t, '===')
+                print('==true reward: {:04.2f}, modified reward: {:04.2f}, step:{:5d}=='.format(
+                    episode_reward, sum_modified_reward, t
+                    ))
                 reward_track.append(episode_reward)
                 time_step.append(t)
                 episode_reward, sum_modified_reward = 0, 0
@@ -63,7 +63,8 @@ class AverageReward:
 
             V_next, _ = torch.max(Q_next, dim=1)
             b = ls_model.bonus(state)
-            V_next = torch.clamp(V_next, self.env.min_clamp, self.env.max_clamp).view(-1, 1)
+            #V_next = torch.clamp(V_next, self.env.min_clamp, self.env.max_clamp).view(-1, 1)
+            V_next = torch.clamp(V_next, max=self.env.max_clamp).view(-1, 1)
             ls_model.cov = state.T.mm(state) + self.regulization_matrix
             ls_model.inv_cov = torch.inverse(ls_model.cov)
             Q = (reward + self.discount * V_next) * (1 - terminal)

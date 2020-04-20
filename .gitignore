@@ -6,6 +6,7 @@ tags
 /tmp/
 /notebook/.ipynb_checkpoints/
 /notebook/*.png
+record/
 train_result/
 .ipynb_checkpoints/
 **/__pycache__
