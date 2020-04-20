@@ -1,19 +1,9 @@
-import os
-from os import path
 import matplotlib as mpl
-import numpy as np
-from sklearn.preprocessing import StandardScaler
-from sklearn.kernel_approximation import RBFSampler
+
 mpl.use("Agg")
 import numpy as np
-import numpy.random as npr
 from numpy.linalg import inv
-from tqdm import trange
-from sklearn.pipeline import FeatureUnion
-from datetime import datetime
 import pickle
-from sklearn.preprocessing import MinMaxScaler
-
 
 
 class LeastSquareModel(object):
@@ -69,10 +59,8 @@ class Model:
             tmp_dict = pickle.load(f)
             self.__dict__.update(tmp_dict)
 
-
     def save(self, path):
         with open(path, 'wb') as f:
             self.clear_trajectory()
             pickle.dump(self.__dict__, f)
-
 

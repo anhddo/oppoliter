@@ -1,21 +1,16 @@
 import argparse
 import os
-import pickle
 from os import path
+
 import matplotlib as mpl
-import matplotlib.pyplot as plt
+
 mpl.use("Agg")
 import gym
-import numpy as np
-from tqdm import trange
-from datetime import datetime
-import pandas as pd
-import seaborn as sns
-import sys
-from linear.fourier_transform import FourierTransform
-from linear.lm import Model
-from linear.trajectory import Trajectory
-from linear.algo import AverageReward, train
+from linear_numpy.fourier_transform import FourierTransform
+from linear_numpy.lm import Model
+from linear_numpy.trajectory import Trajectory
+from linear_numpy.algo import AverageReward
+from linear_numpy.env import EnvWrapper
 import pickle
 import timeit
 
@@ -25,17 +20,18 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Finite-horizon MDP")
     parser.add_argument("--save-dir")
     parser.add_argument("--fourier-order", type=int, default=4)
-    parser.add_argument("--env-name", default='CartPole-v0')
+    parser.add_argument("--env", default='CartPole-v0')
     parser.add_argument("--step", type=int, default=10000)
     parser.add_argument("--repeat", type=int, default=1)
-    parser.add_argument("--discount", type=int, default=0.999)
+    parser.add_argument("--discount", type=float, default=0.999)
     args = parser.parse_args()
     setting = vars(args)
     setting['tmp_dir'] = '/tmp/oppoliter'
 
-    env = gym.make(setting['env_name'])
-    observation_space = env.observation_space.shape[0]
-    action_space = env.action_space.n
+    env = EnvWrapper(setting['env'])
+    observation_space = env.observation_space
+    action_space = env.action_space
+    print('observation_space:', observation_space, 'action_space:', action_space)
 
     ftr_transform = FourierTransform(setting['fourier_order'], observation_space, env)
 
@@ -50,19 +46,21 @@ if __name__ == "__main__":
     with open(path.join(parent_dir, 'setting.txt'), 'w') as f:
         f.write(str(setting))
 
-    algo = AverageReward(1e-3, ftr_transform.dimension)
     run_time = []
     trajectory_per_action = [Trajectory(ftr_transform.dimension, setting['step']) for _ in range(action_space)]
     for i in range(setting['repeat']):
-        start = timeit.default_timer()
         model = Model(ftr_transform.dimension, action_space)
         for trajectory in trajectory_per_action:
             trajectory.reset()
-        reward_track, time_step = train(env, algo, model, ftr_transform, trajectory_per_action, setting)
+        algo = AverageReward(env, model, ftr_transform, trajectory_per_action, setting)
+
+        start = timeit.default_timer()
+        reward_track, time_step = algo.train()
         model.save(setting['model_path'])
         with open(path.join(parent_dir, 'result{}.pkl'.format(i)), 'wb') as f:
             pickle.dump([reward_track, time_step], f)
         stop = timeit.default_timer()
+
         run_time.append('round:{}, {} s.'.format(i, stop - start))
         print('Run time:')
         print('\n'.join(run_time))

@@ -1,21 +1,7 @@
-import os
-from os import path
 import matplotlib as mpl
-import numpy as np
-from sklearn.preprocessing import StandardScaler
-from sklearn.kernel_approximation import RBFSampler
+
 mpl.use("Agg")
 import numpy as np
-import numpy.random as npr
-from numpy.linalg import inv
-from tqdm import trange
-from sklearn.pipeline import FeatureUnion
-from datetime import datetime
-import pickle
-from sklearn.preprocessing import MinMaxScaler
-
-
-
 
 
 class Trajectory:

@@ -1,19 +1,17 @@
 import argparse
 import os
-from datetime import datetime
-from os import path
 import sys
+from os import path
 
 import matplotlib.pyplot as plt
 import numpy as np
-import pandas as pd
-import seaborn as sns
 from tqdm import trange
 
 from tabular.algo import model_based
 from tabular.algo.model_based import ModelBased
 from tabular.algo.model_free import ModelFree
 from tabular.finite_mdp import FiniteMDP
+
 
 def line_95_percent(cummulative_regret, label=None, color='b'):
     m = np.mean(cummulative_regret, axis=0)

@@ -1,18 +1,18 @@
 import argparse
-import os
 from os import path
+
 import matplotlib as mpl
 import matplotlib.pyplot as plt
+
 mpl.use("Agg")
 import gym
 import numpy as np
 from tqdm import trange
-from datetime import datetime
 import pandas as pd
 import seaborn as sns
 import sys
 from linear.avg_reward import FourierTransform
-from linear.linear_model import Model, ValueIteration, PolicyIteration, FeatureTransformer, train
+from linear.linear_model import Model, PolicyIteration, train
 
 
 if __name__ == "__main__":

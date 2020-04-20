@@ -1,17 +1,11 @@
 import argparse
 import os
-import pickle
 from os import path
+
 import matplotlib as mpl
-import matplotlib.pyplot as plt
+
 mpl.use("Agg")
 import gym
-import numpy as np
-from tqdm import trange
-from datetime import datetime
-import pandas as pd
-import seaborn as sns
-import sys
 #from linear.fourier_transform import FourierTransform
 #from linear.lm import Model
 #from linear.trajectory import Trajectory
@@ -20,7 +14,8 @@ import torch
 from linear_torch.fourier_transform import FourierTransform
 from linear_torch.lm import Model
 from linear_torch.trajectory import Trajectory
-from linear_torch.avg_reward import AverageReward, train
+from linear_torch.avg_reward import AverageReward
+from linear_torch.env import EnvWrapper
 import pickle
 import timeit
 
@@ -33,19 +28,17 @@ if __name__ == "__main__":
     parser.add_argument("--env-name", default='CartPole-v0')
     parser.add_argument("--step", type=int, default=10000)
     parser.add_argument("--repeat", type=int, default=1)
-    parser.add_argument("--discount", type=int, default=0.999)
+    parser.add_argument("--discount", type=float, default=0.999)
     args = parser.parse_args()
     setting = vars(args)
     setting['tmp_dir'] = '/tmp/oppoliter'
 
-    env = gym.make(setting['env_name'])
+    env = EnvWrapper(setting['env_name'])
     device = torch.device('cpu')
     if torch.cuda.is_available():
         device = torch.device('cuda')
-    observation_space = env.observation_space.shape[0]
-    action_space = env.action_space.n
 
-    ftr_transform = FourierTransform(setting['fourier_order'], observation_space, env, device)
+    ftr_transform = FourierTransform(setting['fourier_order'], env.observation_space, env, device)
 
     parent_dir = setting['save_dir']
     os.makedirs(parent_dir, exist_ok=True)
@@ -58,19 +51,24 @@ if __name__ == "__main__":
     with open(path.join(parent_dir, 'setting.txt'), 'w') as f:
         f.write(str(setting))
 
-    algo = AverageReward(1e-3, ftr_transform.dimension, device)
     run_time = []
-    trajectory_per_action = [Trajectory(ftr_transform.dimension, device, setting['step']) for _ in range(action_space)]
+    trajectory_per_action = [
+        Trajectory(ftr_transform.dimension, device, setting['step'])
+            for _ in range(env.action_space)
+    ]
     for i in range(setting['repeat']):
-        start = timeit.default_timer()
-        model = Model(ftr_transform.dimension, action_space, device)
+        model = Model(ftr_transform.dimension, env.action_space, device)
         for trajectory in trajectory_per_action:
             trajectory.reset()
-        reward_track, time_step = train(env, algo, model, ftr_transform, trajectory_per_action, setting)
+        algo = AverageReward(env, model, ftr_transform, trajectory_per_action, setting, device)
+
+        start = timeit.default_timer()
+        reward_track, time_step = algo.train()
         model.save(setting['model_path'])
         with open(path.join(parent_dir, 'result{}.pkl'.format(i)), 'wb') as f:
             pickle.dump([reward_track, time_step], f)
         stop = timeit.default_timer()
+
         run_time.append('round:{}, {} s.'.format(i, stop - start))
         print('Run time:')
         print('\n'.join(run_time))
