@@ -13,9 +13,9 @@ class AverageReward:
         self.env = env
         self.ftr_transform = ftr_transform
         self.trajectory_per_action = trajectory_per_action
+        self.model = model
         self.total_step = setting['step']
         self.discount = setting['discount']
-        self.model = model
         self.render = setting['render']
 
 
@@ -63,7 +63,6 @@ class AverageReward:
 
             V_next, _ = torch.max(Q_next, dim=1)
             b = ls_model.bonus(state)
-            #V_next = torch.clamp(V_next, self.env.min_clamp, self.env.max_clamp).view(-1, 1)
             V_next = torch.clamp(V_next, max=self.env.max_clamp).view(-1, 1)
             ls_model.cov = state.T.mm(state) + self.regulization_matrix
             ls_model.inv_cov = torch.inverse(ls_model.cov)
