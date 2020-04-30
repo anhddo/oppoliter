@@ -7,9 +7,10 @@ import torch
 
 
 class AverageReward:
-    def __init__(self, env, model, ftr_transform, trajectory_per_action, setting, device):
+    def __init__(self, env, model, ftr_transform,
+            trajectory_per_action, setting, device):
         self.name = "Least square value iteration"
-        self.regulization_matrix = 1e-4 * torch.eye(ftr_transform.dimension, device=device)
+        self.regulization_matrix = setting['lambda'] * torch.eye(ftr_transform.dimension, device=device)
         self.env = env
         self.ftr_transform = ftr_transform
         self.trajectory_per_action = trajectory_per_action
@@ -20,36 +21,34 @@ class AverageReward:
 
 
     def train(self):
-        episode_reward = 0
         sum_modified_reward = 0
-        rewards = [0] * 10
+        tracking = [0] * 10
         terminal = True
-        reward_track, time_step = [], []
+        target_track, time_step = [], []
 
         state=None
+        episode_count = 0
         for t in range(self.total_step):
             if self.render:
                 self.env.env.render()
             if terminal:
+                print('==target: {:04.2f}, modified reward: {:04.2f}, step:{:5d}, ep:{:3d}=='
+                        .format(self.env.tracking_value, sum_modified_reward, t, episode_count
+                    ))
+                time_step.append(t)
+                target_track.append(self.env.tracking_value)
+                sum_modified_reward = 0
                 state = self.env.reset()
                 state = self.ftr_transform.transform(state)
-                rewards.append(episode_reward)
-                print('==true reward: {:04.2f}, modified reward: {:04.2f}, step:{:5d}=='.format(
-                    episode_reward, sum_modified_reward, t
-                    ))
-                reward_track.append(episode_reward)
-                time_step.append(t)
-                episode_reward, sum_modified_reward = 0, 0
-                del rewards[0]
+                episode_count += 1
             action = self.model.choose_action(state).cpu().numpy()[0]
             next_state, true_reward, modified_reward, terminal, info = self.env.step(action)
-            episode_reward += true_reward
             sum_modified_reward += modified_reward
             next_state = self.ftr_transform.transform(next_state)
             self.trajectory_per_action[action].append(state, modified_reward, next_state, terminal)
             state = next_state
             self.update_model()
-        return reward_track, time_step
+        return target_track, time_step
 
 
     def update_model(self):
@@ -60,9 +59,7 @@ class AverageReward:
             reward = reward.view(-1, 1)
             terminal = terminal.view(-1, 1)
             Q_next = self.model.predict(next_state)
-
             V_next, _ = torch.max(Q_next, dim=1)
-            b = ls_model.bonus(state)
             V_next = torch.clamp(V_next, max=self.env.max_clamp).view(-1, 1)
             ls_model.cov = state.T.mm(state) + self.regulization_matrix
             ls_model.inv_cov = torch.inverse(ls_model.cov)
@@ -71,7 +68,6 @@ class AverageReward:
             assert ls_model.cov.shape == (self.model.D, self.model.D)
             assert ls_model.inv_cov.shape == (self.model.D, self.model.D)
             assert ls_model.w.shape == (self.model.D, 1)
-            assert b.shape[1] == 1
             assert Q.shape[1] == 1
 
 def test(model, env, ftr_transform):

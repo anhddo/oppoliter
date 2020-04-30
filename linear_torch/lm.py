@@ -7,11 +7,12 @@ import torch
 
 
 class LeastSquareModel(object):
-    def __init__(self, D, device):
+    def __init__(self, D, beta, device):
         self.w = torch.zeros(D, 1, dtype=torch.double, device=device)
         #self.w = torch.rand(D, 1, dtype=torch.double, device=device) * 2 - 2
-        self.cov = 1e-3 * torch.eye(self.w.shape[0], dtype=torch.double, device=device)
+        self.cov = 1e-7 * torch.eye(self.w.shape[0], dtype=torch.double, device=device)
         self.inv_cov = torch.inverse(self.cov)
+        self.beta = beta
 
 
     def predict(self, x, bonus=True):
@@ -19,11 +20,12 @@ class LeastSquareModel(object):
         if bonus:
             b = self.bonus(x)
             Q = Q + b
+            #print(torch.max(b) , torch.max(Q))
             assert Q.shape == b.shape
         return Q
 
     def bonus(self, x):
-        v = torch.sqrt(x.mm(self.inv_cov).mm(x.T).diagonal())
+        v = self.beta * torch.sqrt(x.mm(self.inv_cov).mm(x.T).diagonal())
         return v.view(-1, 1)
 
     def convert_to_cpu(self):
@@ -33,9 +35,9 @@ class LeastSquareModel(object):
 
 
 class Model:
-    def __init__(self, ftr_size, action_space, device):
+    def __init__(self, ftr_size, action_space, beta, device):
         self.action_count = [0, 0]
-        self.action_model = [LeastSquareModel(ftr_size, device) for _ in range(action_space)]
+        self.action_model = [LeastSquareModel(ftr_size, beta, device) for _ in range(action_space)]
         self.D = ftr_size
 
     def choose_action(self, state, bonus=True):
@@ -62,7 +64,6 @@ class Model:
             self.clear_trajectory()
             for lm in self.action_model:
                 lm.convert_to_cpu()
-                #del lm.cov, lm.inv_cov
             pickle.dump(self.__dict__, f)
 
 

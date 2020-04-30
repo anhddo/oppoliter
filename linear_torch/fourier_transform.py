@@ -9,10 +9,10 @@ import torch
 
 
 class FourierTransform:
-    def __init__(self, n, d, env, device):
+    def __init__(self, fourier_order, feature_dim, env, device):
         self.scaler = self.create_scaler(env)
-        s = np.arange(n)
-        a = [s]*d
+        s = np.arange(fourier_order)
+        a = [s] * feature_dim
         c = np.meshgrid(*a)
         c = [i.flatten() for i in c]
         self.k = np.stack(c).T
@@ -40,5 +40,3 @@ class FourierTransform:
         ftr = self.scaler.transform(ftr.reshape(-1, self.observation_space))
         ftr = np.cos(np.pi * self.k.dot(ftr.T)).reshape(-1, self.dimension)
         return torch.from_numpy(ftr).type(torch.double).to(self.device)
-
-
