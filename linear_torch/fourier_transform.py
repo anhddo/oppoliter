@@ -31,6 +31,7 @@ class FourierTransform:
             action = npr.randint(2)
             state, true_reward, modified_reward, terminal, info = env.step(action)
             state_array[t] = state
+        env.reset()
         scaler = MinMaxScaler()
         scaler.fit(state_array)
         return scaler
