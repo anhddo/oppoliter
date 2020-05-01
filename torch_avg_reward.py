@@ -19,6 +19,7 @@ if __name__ == "__main__":
     parser.add_argument("--lambda", type=float, default=1)
     parser.add_argument("--env-name", default='CartPole-v0')
     parser.add_argument("--render", action="store_true", default=False)
+    parser.add_argument("--cpu", action="store_true", default=False)
     parser.add_argument("--step", type=int, default=10000)
     parser.add_argument("--repeat", type=int, default=1)
     parser.add_argument("--discount", type=float, default=0.999)
@@ -27,8 +28,10 @@ if __name__ == "__main__":
     setting['tmp_dir'] = '/tmp/oppoliter'
 
     env = EnvWrapper(setting['env_name'])
-    device = torch.device('cpu')
-    if torch.cuda.is_available():
+    device = None
+    if setting['cpu']:
+        device = torch.device('cpu')
+    if not setting['cpu'] and torch.cuda.is_available():
         device = torch.device('cuda')
 
     ftr_transform = FourierTransform(setting['fourier_order'], env.observation_space, env, device)
