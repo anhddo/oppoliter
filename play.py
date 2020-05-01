@@ -14,6 +14,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Finite-horizon MDP")
     parser.add_argument("--env", default='CartPole-v0')
     parser.add_argument("--path")
+    parser.add_argument("--beta", type=float, default=1)
     parser.add_argument("--fourier-order", type=int, default=4)
     args = parser.parse_args()
     setting = vars(args)
@@ -22,7 +23,7 @@ if __name__ == "__main__":
     action_space = env.action_space.n
     #ftr_transform = FourierTransform(setting['fourier_range'], observation_space, env)
     device = torch.device('cpu')
-    model = Model(0, 0, device)
+    model = Model(0, 0, setting['beta'], device)
     model.load(path.join(setting['path'], 'model.pkl'))
     ftr_transform = None
     with open(path.join(setting['path'], 'ftr_transform'), 'rb') as f:
