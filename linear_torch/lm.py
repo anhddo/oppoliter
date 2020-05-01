@@ -20,13 +20,16 @@ class LeastSquareModel(object):
         if bonus:
             b = self.bonus(x)
             Q = Q + b
-            #print(torch.max(b) , torch.max(Q))
             assert Q.shape == b.shape
         return Q
 
     def bonus(self, x):
         v = self.beta * torch.sqrt(x.mm(self.inv_cov).mm(x.T).diagonal())
         return v.view(-1, 1)
+
+    def update_cov(self, x):
+        self.cov += x.T.mm(x)
+        self.inv_cov = torch.inverse(self.cov)
 
     def convert_to_cpu(self):
         self.w = self.w.cpu()

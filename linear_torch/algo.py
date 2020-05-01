@@ -43,6 +43,7 @@ class AverageReward:
                 state = self.ftr_transform.transform(state)
                 episode_count += 1
             action = self.model.choose_action(state).cpu().numpy()[0]
+            self.model.action_model[action].update_cov(state)
             next_state, true_reward, modified_reward, terminal, info = self.env.step(action)
             sum_modified_reward += modified_reward
             next_state = self.ftr_transform.transform(next_state)
@@ -63,8 +64,8 @@ class AverageReward:
             Q_next = self.model.predict(next_state)
             V_next, _ = torch.max(Q_next, dim=1)
             V_next = torch.clamp(V_next, max=self.env.max_clamp).view(-1, 1)
-            ls_model.cov = state.T.mm(state) + self.regulization_matrix
-            ls_model.inv_cov = torch.inverse(ls_model.cov)
+            #ls_model.cov = state.T.mm(state) + self.regulization_matrix
+            #ls_model.inv_cov = torch.inverse(ls_model.cov)
             Q = (reward + self.discount * V_next) * (1 - terminal)
             ls_model.w = ls_model.inv_cov.mm(state.T.mm(Q))
             assert ls_model.cov.shape == (self.model.D, self.model.D)
