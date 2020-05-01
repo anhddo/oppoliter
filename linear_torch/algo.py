@@ -26,8 +26,9 @@ class AverageReward:
         terminal = True
         target_track, time_step = [], []
 
-        state=None
+        state = None
         episode_count = 0
+        self.env.reset()
         for t in range(self.total_step):
             if self.render:
                 self.env.env.render()
@@ -48,6 +49,7 @@ class AverageReward:
             self.trajectory_per_action[action].append(state, modified_reward, next_state, terminal)
             state = next_state
             self.update_model()
+        self.env.reset()
         return target_track, time_step
 
 
