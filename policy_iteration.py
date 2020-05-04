@@ -17,6 +17,7 @@ if __name__ == "__main__":
     parser.add_argument("--fourier-order", type=int, default=4)
     parser.add_argument("--beta", type=float, default=1)
     parser.add_argument("--n-eval", type=int, default=5)
+    parser.add_argument("--sample-len", type=int, default=1000)
     parser.add_argument("--lambda", type=float, default=1)
     parser.add_argument("--env-name", default='CartPole-v0')
     parser.add_argument("--render", action="store_true", default=False)

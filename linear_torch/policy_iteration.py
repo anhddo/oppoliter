@@ -19,6 +19,7 @@ class PolicyIteration:
         self.discount = setting['discount']
         self.render = setting['render']
         self.n_eval = setting['n_eval']
+        self.sample_len = setting['sample_len']
 
 
     def train(self):
@@ -32,7 +33,7 @@ class PolicyIteration:
         self.env.reset()
         t = -1
         while t < self.total_step:
-            for _ in range(500):
+            for _ in range(self.sample_len):
                 t += 1
                 if terminal:
                     print('==target: {:04.2f}, modified reward: {:04.2f}, step:{:5d}, ep:{:3d}=='
@@ -51,9 +52,12 @@ class PolicyIteration:
                 next_state = self.ftr_transform.transform(next_state)
                 self.trajectory_per_action[action].append(state, modified_reward, next_state, terminal)
                 state = next_state
+                if t == self.total_step:
+                    break
             policy = self.get_fix_policy()
             #self.update_cov()
 
+            print('========Policy evaluation======')
             for _ in range(self.n_eval):
                 self.update_model(policy)
         self.env.reset()
