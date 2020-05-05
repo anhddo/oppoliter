@@ -8,11 +8,15 @@ import torch
 
 class LeastSquareModel(object):
     def __init__(self, D, beta, device):
-        self.w = torch.zeros(D, 1, dtype=torch.double, device=device)
+        self.device = device
+        self.w = torch.zeros(D, 1, dtype=torch.double, device=self.device)
         #self.w = torch.rand(D, 1, dtype=torch.double, device=device) * 2 - 2
         self.cov = 1e-7 * torch.eye(self.w.shape[0], dtype=torch.double, device=device)
         self.inv_cov = torch.inverse(self.cov)
         self.beta = beta
+
+    def reset_zeros(self):
+        self.w.fill_(0)
 
 
     def predict(self, x, bonus=True):

@@ -58,6 +58,10 @@ class PolicyIteration:
             #self.update_cov()
 
             print('========Policy evaluation======')
+
+            for m in self.model.action_model:
+                m.reset_zeros()
+
             for _ in range(self.n_eval):
                 self.update_model(policy)
         self.env.reset()
