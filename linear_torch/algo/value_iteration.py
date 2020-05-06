@@ -6,7 +6,7 @@ import torch
 
 
 
-class AverageReward:
+class ValueIteration:
     def __init__(self, env, model, ftr_transform,
             trajectory_per_action, setting, device):
         self.name = "Least square value iteration"
@@ -72,17 +72,4 @@ class AverageReward:
             assert ls_model.inv_cov.shape == (self.model.D, self.model.D)
             assert ls_model.w.shape == (self.model.D, 1)
             assert Q.shape[1] == 1
-
-def test(model, env, ftr_transform):
-    episode_reward = 0
-    state = env.reset()
-    state = ftr_transform.transform(state)
-    while True:
-        action = model.choose_action(state)[0]
-        next_state, reward, terminal, info = env.step(action)
-        episode_reward += reward
-        next_state = ftr_transform.transform(next_state)
-        state = next_state
-        if terminal:
-            return episode_reward
 

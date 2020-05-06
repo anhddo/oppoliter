@@ -5,7 +5,7 @@ import torch
 from linear_torch.fourier_transform import FourierTransform
 from linear_torch.lm import Model
 from linear_torch.trajectory import Trajectory
-from linear_torch.policy_iteration import PolicyIteration
+from linear_torch.algo import PolicyIteration, ValueIteration
 from linear_torch.env import EnvWrapper
 import pickle
 import timeit
@@ -13,13 +13,13 @@ import timeit
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Finite-horizon MDP")
-    parser.add_argument("--save-dir")
     parser.add_argument("--fourier-order", type=int, default=4)
+    parser.add_argument("--algo", default='val')
     parser.add_argument("--beta", type=float, default=1)
     parser.add_argument("--n-eval", type=int, default=5)
     parser.add_argument("--sample-len", type=int, default=1000)
     parser.add_argument("--lambda", type=float, default=1)
-    parser.add_argument("--env-name", default='CartPole-v0')
+    parser.add_argument("--env", default='CartPole-v0')
     parser.add_argument("--render", action="store_true", default=False)
     parser.add_argument("--cpu", action="store_true", default=False)
     parser.add_argument("--step", type=int, default=10000)
@@ -29,7 +29,14 @@ if __name__ == "__main__":
     setting = vars(args)
     setting['tmp_dir'] = '/tmp/oppoliter'
 
-    env = EnvWrapper(setting['env_name'])
+    key = ['algo',  'env', 'fourier_order', 'beta', 'lambda', 'step', 'discount']
+    s = '-'.join(['{}-{}'.format(e, setting[e]) for e in key])
+    if setting['algo'] == 'pol':
+        key = ['sample_len', 'n_eval']
+        s += '-'.join(['{}-{}'.format(e, setting[e]) for e in key])
+    setting['save_dir'] = 'tmp/' + s
+
+    env = EnvWrapper(setting['env'])
     device = None
     if setting['cpu']:
         device = torch.device('cpu')
@@ -45,6 +52,7 @@ if __name__ == "__main__":
     print('---------------------')
     print('Pytorch version')
     print('Environment:', env.env_name)
+    print('Algorithm:', 'Value iteration' if setting['algo'] == 'val' else 'Policy iteration')
     print('observation_space:', env.observation_space,
             'action_space:', env.action_space,
             'feature dimension:', ftr_transform.dimension)
@@ -61,11 +69,18 @@ if __name__ == "__main__":
         Trajectory(ftr_transform.dimension, device, setting['step'])
             for _ in range(env.action_space)
     ]
+
+
     for i in range(setting['repeat']):
         model = Model(ftr_transform.dimension, env.action_space, setting['beta'], device)
         for trajectory in trajectory_per_action:
             trajectory.reset()
-        algo = PolicyIteration(env, model, ftr_transform, trajectory_per_action, setting, device)
+
+        algo = None
+        if setting['algo'] == 'val':
+            algo = ValueIteration(env, model, ftr_transform, trajectory_per_action, setting, device)
+        elif setting['algo'] == 'pol':
+            algo = PolicyIteration(env, model, ftr_transform, trajectory_per_action, setting, device)
 
         start = timeit.default_timer()
         reward_track, time_step = algo.train()
@@ -75,6 +90,7 @@ if __name__ == "__main__":
         stop = timeit.default_timer()
 
         run_time.append('round:{}, {} s.'.format(i, stop - start))
+        print(setting['save_dir'])
         print('Run time:')
         print('\n'.join(run_time))
 
