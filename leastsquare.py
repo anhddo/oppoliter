@@ -3,9 +3,10 @@ import os
 from os import path
 import torch
 from linear_torch.fourier_transform import FourierTransform
+from linear_torch.fourier_transform import FourierTransform
 from linear_torch.lm import Model
 from linear_torch.trajectory import Trajectory
-from linear_torch.algo import PolicyIteration, ValueIteration
+from linear_torch.leastsquare_qlearning import LeastSquareQLearning
 from linear_torch.env import EnvWrapper
 import pickle
 import timeit
@@ -29,21 +30,16 @@ if __name__ == "__main__":
     setting = vars(args)
     setting['tmp_dir'] = '/tmp/oppoliter'
 
-    key = ['algo',  'env', 'fourier_order', 'beta', 'lambda', 'step', 'discount']
+    key = ['algo',  'env', 'fourier_order', 'beta', 'lambda', 'step',
+            'discount', 'sample_len', 'n_eval', 'repeat'
+            ]
     s = '-'.join(['{}-{}'.format(e, setting[e]) for e in key])
-    if setting['algo'] == 'pol':
-        key = ['sample_len', 'n_eval']
-        s += '-'.join(['{}-{}'.format(e, setting[e]) for e in key])
     setting['save_dir'] = 'tmp/' + s
 
     env = EnvWrapper(setting['env'])
-    device = None
-    if setting['cpu']:
-        device = torch.device('cpu')
-    if not setting['cpu'] and torch.cuda.is_available():
-        device = torch.device('cuda')
 
-    ftr_transform = FourierTransform(setting['fourier_order'], env.observation_space, env, device)
+    torch.set_default_tensor_type(torch.DoubleTensor)
+    ftr_transform = FourierTransform(setting['fourier_order'], env.observation_space, env)
 
     parent_dir = setting['save_dir']
     os.makedirs(parent_dir, exist_ok=True)
@@ -66,21 +62,22 @@ if __name__ == "__main__":
 
     run_time = []
     trajectory_per_action = [
-        Trajectory(ftr_transform.dimension, device, setting['step'])
+        Trajectory(ftr_transform.dimension, setting['step'])
             for _ in range(env.action_space)
     ]
 
 
     for i in range(setting['repeat']):
-        model = Model(ftr_transform.dimension, env.action_space, setting['beta'], device)
+        model = Model(ftr_transform.dimension, env.action_space, setting['beta'])
         for trajectory in trajectory_per_action:
             trajectory.reset()
 
-        algo = None
-        if setting['algo'] == 'val':
-            algo = ValueIteration(env, model, ftr_transform, trajectory_per_action, setting, device)
-        elif setting['algo'] == 'pol':
-            algo = PolicyIteration(env, model, ftr_transform, trajectory_per_action, setting, device)
+        #algo = None
+        #if setting['algo'] == 'val':
+        #    algo = ValueIteration(env, model, ftr_transform, trajectory_per_action, setting, device)
+        #elif setting['algo'] == 'pol':
+        #    algo = PolicyIteration(env, model, ftr_transform, trajectory_per_action, setting, device)
+        algo = LeastSquareQLearning(env, model, ftr_transform, trajectory_per_action, setting)
 
         start = timeit.default_timer()
         reward_track, time_step = algo.train()

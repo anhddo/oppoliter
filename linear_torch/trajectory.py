@@ -2,16 +2,17 @@ import matplotlib as mpl
 
 mpl.use("Agg")
 import torch
+from .device import mul_device
 
 
 class Trajectory:
-    def __init__(self, D, device, step=10000):
+    def __init__(self, D, step=10000):
         max_unit = step
         self.index = -1
-        self.state = torch.zeros(max_unit, D, dtype=torch.double, device=device)
-        self.next_state = torch.zeros(max_unit, D, dtype=torch.double, device=device)
-        self.reward = torch.zeros(max_unit, dtype=torch.double, device=device)
-        self.terminal = torch.zeros(max_unit, dtype=torch.double, device=device)
+        self.state = torch.zeros(max_unit, D, dtype=torch.double, device=mul_device)
+        self.next_state = torch.zeros(max_unit, D, dtype=torch.double, device=mul_device)
+        self.reward = torch.zeros(max_unit, dtype=torch.double, device=mul_device)
+        self.terminal = torch.zeros(max_unit, dtype=torch.double, device=mul_device)
         self.max_unit = max_unit
 
     def append(self, state, reward, next_state, terminal):
