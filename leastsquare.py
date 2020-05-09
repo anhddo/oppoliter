@@ -22,16 +22,18 @@ if __name__ == "__main__":
     parser.add_argument("--lambda", type=float, default=1)
     parser.add_argument("--env", default='CartPole-v0')
     parser.add_argument("--render", action="store_true", default=False)
-    parser.add_argument("--cpu", action="store_true", default=False)
+    parser.add_argument("--bonus", type=int, default=1)
     parser.add_argument("--step", type=int, default=10000)
     parser.add_argument("--repeat", type=int, default=1)
     parser.add_argument("--discount", type=float, default=0.999)
+    parser.add_argument("--start-index", type=int, default=0)
     args = parser.parse_args()
     setting = vars(args)
+    setting['bonus'] = True if setting['bonus'] == 1 else False
     setting['tmp_dir'] = '/tmp/oppoliter'
 
     key = ['algo',  'env', 'fourier_order', 'beta', 'lambda', 'step',
-            'discount', 'sample_len', 'n_eval', 'repeat'
+            'discount', 'sample_len', 'n_eval', 'repeat', 'bonus'
             ]
     s = '-'.join(['{}-{}'.format(e, setting[e]) for e in key])
     setting['save_dir'] = 'tmp/' + s
@@ -59,7 +61,6 @@ if __name__ == "__main__":
 
     with open(path.join(parent_dir, 'setting.txt'), 'w') as f:
         f.write(str(setting))
-
     run_time = []
     trajectory_per_action = [
         Trajectory(ftr_transform.dimension, setting['step'])
@@ -67,16 +68,11 @@ if __name__ == "__main__":
     ]
 
 
-    for i in range(setting['repeat']):
+    for i in range(setting['start_index'], setting['start_index'] + setting['repeat']):
         model = Model(ftr_transform.dimension, env.action_space, setting['beta'])
         for trajectory in trajectory_per_action:
             trajectory.reset()
 
-        #algo = None
-        #if setting['algo'] == 'val':
-        #    algo = ValueIteration(env, model, ftr_transform, trajectory_per_action, setting, device)
-        #elif setting['algo'] == 'pol':
-        #    algo = PolicyIteration(env, model, ftr_transform, trajectory_per_action, setting, device)
         algo = LeastSquareQLearning(env, model, ftr_transform, trajectory_per_action, setting)
 
         start = timeit.default_timer()
