@@ -61,6 +61,9 @@ class EnvWrapper:
             #if terminal:
             #    if self.t < self.env._max_episode_steps:
             #        modified_reward = self.max_clamp
+        elif self.env_name == 'LunarLander-v2':
+            self.tracking_value += true_reward
+            modified_reward = true_reward
         else:
             modified_reward = true_reward
 
