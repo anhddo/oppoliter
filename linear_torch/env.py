@@ -22,7 +22,7 @@ class EnvWrapper:
 
         elif self.env_name == 'MountainCar-v0':
             self.max_clamp = 100
-            self.reset_tracking_value = -2
+            self.reset_tracking_value = -0.6
 
         elif self.env_name == 'Acrobot-v1':
             self.max_clamp = 100
@@ -31,6 +31,8 @@ class EnvWrapper:
         elif self.env_name == 'LunarLander-v2':
             self.min_clamp = -500
             self.max_clamp = 200
+            self.reset_tracking_value = 0
+        self._max_episode_steps = self.env._max_episode_steps
 
         self.tracking_value = self.reset_tracking_value
 

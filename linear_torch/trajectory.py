@@ -2,11 +2,10 @@ import matplotlib as mpl
 
 mpl.use("Agg")
 import torch
-from .device import mul_device
 
 
 class Trajectory:
-    def __init__(self, D, step=10000):
+    def __init__(self, D, mul_device, step=10000):
         max_unit = step
         self.index = -1
         self.state = torch.zeros(max_unit, D, dtype=torch.double, device=mul_device)

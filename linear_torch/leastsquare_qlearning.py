@@ -2,21 +2,23 @@ import matplotlib as mpl
 
 mpl.use("Agg")
 import numpy as np
+import numpy.random as npr
 import torch
-from .device import mul_device
 
 VAL = 0
 POL = 1
+EPSILON_GREEDY = 2
 
 
 class LeastSquareQLearning:
     def __init__(self, env, model, ftr_transform,
-            trajectory_per_action, setting):
+            trajectory_per_action, setting, device):
         self.name = "Least square value iteration"
         self.regulization_matrix = setting['lambda'] * torch.eye(ftr_transform.dimension)
         self.env = env
         self.ftr_transform = ftr_transform
         self.trajectory_per_action = trajectory_per_action
+        self.n_action = len(trajectory_per_action)
         self.model = model
         self.total_step = setting['step']
         self.discount = setting['discount']
@@ -24,7 +26,15 @@ class LeastSquareQLearning:
         self.n_eval = setting['n_eval']
         self.sample_len = setting['sample_len']
         self.bonus = setting['bonus']
-        self.algo = VAL if setting['algo'] == 'val' else POL
+        self.epsilon = setting['epsilon']
+        self.device = device
+        if setting['algo'] == 'val':
+            self.algo = VAL
+        if setting['algo'] == 'pol':
+            self.algo = VAL
+        if setting['algo'] == 'ep-gr':
+            self.algo = EPSILON_GREEDY
+
 
 
     def train(self):
@@ -50,7 +60,15 @@ class LeastSquareQLearning:
                     state = self.env.reset()
                     state = self.ftr_transform.transform(state)
                     episode_count += 1
-                action = self.model.choose_action(state, self.bonus).cpu().numpy()[0]
+
+                action = 0
+                if self.algo == EPSILON_GREEDY:
+                    if npr.uniform() < self.epsilon:
+                        action = npr.randint(self.n_action)
+                    else:
+                        action = self.model.choose_action(state, self.bonus).cpu().numpy()[0]
+                else:
+                    action = self.model.choose_action(state, self.bonus).cpu().numpy()[0]
                 self.model.action_model[action].update_cov(state)
                 next_state, true_reward, modified_reward, terminal, info = self.env.step(action)
                 sum_modified_reward += modified_reward
@@ -103,12 +121,13 @@ class LeastSquareQLearning:
             Q_next = self.model.predict(next_state, self.bonus)
             if self.algo == POL:
                 V_next = torch.gather(Q_next, 1, policy_per_action.view(-1, 1))
-            if self.algo == VAL:
+            #if self.algo == VAL or self.algo == EPSILON_GREEDY:
+            else:
                 V_next, _ = torch.max(Q_next, dim=1)
                 V_next = V_next.view(-1, 1)
             Q = (reward + self.discount * V_next) * (1 - terminal)
             Q = torch.clamp(Q, max=self.env.max_clamp)
-            ls_model.w = ls_model.inv_cov.to(mul_device).mm(state.T.mm(Q)).cpu()
+            ls_model.w = ls_model.inv_cov.to(self.device).mm(state.T.mm(Q)).cpu()
             assert Q.shape[1] == 1
             assert ls_model.cov.shape == (self.model.D, self.model.D)
             assert ls_model.inv_cov.shape == (self.model.D, self.model.D)

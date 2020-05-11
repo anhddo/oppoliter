@@ -3,24 +3,24 @@ import matplotlib as mpl
 mpl.use("Agg")
 import pickle
 import torch
-from .device import mul_device
 
 
 
 class LeastSquareModel(object):
-    def __init__(self, D, beta):
+    def __init__(self, D, beta, device):
         self.w = torch.zeros(D, 1)
         #self.w = torch.rand(D, 1, dtype=torch.double, device=device) * 2 - 2
         self.cov = 1e-7 * torch.eye(self.w.shape[0])
         self.inv_cov = torch.inverse(self.cov)
         self.beta = beta
+        self.device = device
 
     def reset_zeros(self):
         self.w.fill_(0)
 
 
     def predict(self, x, bonus=True):
-        w = self.w.to(mul_device) if x.is_cuda else self.w
+        w = self.w.to(self.device) if x.is_cuda else self.w
         Q = x.mm(w)
         if bonus:
             b = self.bonus(x)
@@ -29,7 +29,7 @@ class LeastSquareModel(object):
         return Q
 
     def bonus(self, x):
-        inv_cov = self.inv_cov.to(mul_device) if x.is_cuda else self.inv_cov
+        inv_cov = self.inv_cov.to(self.device) if x.is_cuda else self.inv_cov
         v = self.beta * torch.sqrt(x.mm(inv_cov).mm(x.T).diagonal())
         return v.view(-1, 1)
 
@@ -44,9 +44,9 @@ class LeastSquareModel(object):
 
 
 class Model:
-    def __init__(self, ftr_size, action_space, beta):
+    def __init__(self, ftr_size, action_space, beta, device):
         self.action_count = [0, 0]
-        self.action_model = [LeastSquareModel(ftr_size, beta) for _ in range(action_space)]
+        self.action_model = [LeastSquareModel(ftr_size, beta, device) for _ in range(action_space)]
         self.D = ftr_size
 
     def choose_action(self, state, bonus=True):
