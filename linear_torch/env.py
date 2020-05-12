@@ -1,6 +1,7 @@
 import gym
 import numpy as np
 from numpy import cos
+import gym_cartpole_swingup
 
 class EnvWrapper:
     def __init__(self, env_name):
@@ -9,12 +10,15 @@ class EnvWrapper:
         self.observation_space = self.env.observation_space.shape[0]
         if env_name == 'BipedalWalker-v3':
             self.action_space = self.env.action_space.shape[0]
+        elif env_name == 'CartPoleSwingUp-v0':
+            self.action_space = 2
         else:
             self.action_space = self.env.action_space.n
         self.tracking_value = 0
         self.reset_tracking_value = 0
         self._max_episode_steps = self.env._max_episode_steps
         self.max_clamp = self.env._max_episode_steps
+
 
         self.min_clamp = 0
         if self.env_name == 'CartPole-v0' or self.env_name == 'CartPole-v1':
@@ -38,16 +42,21 @@ class EnvWrapper:
 
 
     def step(self, action):
+        if self.env_name == 'CartPoleSwingUp-v0':
+            if action == 0:
+                action = -1
         state, true_reward, terminal, info = self.env.step(action)
         self.t += 1
+        true_reward = float(true_reward)
+        modified_reward = true_reward
         if self.env_name == 'CartPole-v0' or self.env_name == 'CartPole-v1':
-            modified_reward = true_reward
             if terminal:
                 modified_reward = self.t - self.env._max_episode_steps
             self.tracking_value += true_reward
+        elif self.env_name == 'CartPoleSwingUp-v0':
+            self.tracking_value += true_reward
 
         elif self.env_name == 'MountainCar-v0':
-            modified_reward = true_reward
             #if terminal and self.t < self.env._max_episode_steps:
             #    modified_reward = self.max_clamp
             #else:
@@ -56,7 +65,6 @@ class EnvWrapper:
             self.tracking_value = max(self.tracking_value, state[0])
 
         elif self.env_name == 'Acrobot-v1':
-            modified_reward = true_reward
             #height = -cos(state[0]) - cos(state[1] + state[0])
             #self.tracking_value = max(self.tracking_value, height)
             self.tracking_value = self.t
@@ -65,9 +73,6 @@ class EnvWrapper:
             #        modified_reward = self.max_clamp
         elif self.env_name == 'LunarLander-v2':
             self.tracking_value += true_reward
-            modified_reward = true_reward
-        else:
-            modified_reward = true_reward
 
 
         return state, true_reward, modified_reward, terminal, info
