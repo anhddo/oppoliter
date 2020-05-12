@@ -9,8 +9,8 @@ import torch
 
 
 class FourierTransform:
-    def __init__(self, fourier_order, feature_dim, env):
-        self.scaler = self.create_scaler(env)
+    def __init__(self, fourier_order, feature_dim, env_wrapper):
+        self.scaler = self.create_scaler(env_wrapper)
         s = np.arange(fourier_order)
         a = [s] * feature_dim
         c = np.meshgrid(*a)
@@ -27,7 +27,7 @@ class FourierTransform:
         for t in range(state_array.shape[0]):
             if terminal :
                 state = env.reset()
-            action = npr.randint(2)
+            action = env.env.action_space.sample()
             state, true_reward, modified_reward, terminal, info = env.step(action)
             state_array[t] = state
         env.reset()
@@ -37,7 +37,9 @@ class FourierTransform:
 
 
     def transform(self, ftr):
-        ftr = self.scaler.transform(ftr.reshape(-1, self.observation_space))
+        ftr = ftr.reshape(1, -1)
+        self.scaler.partial_fit(ftr)
+        ftr = self.scaler.transform(ftr)
         ftr = np.cos(np.pi * self.k.dot(ftr.T)).reshape(-1, self.dimension)
         return torch.from_numpy(ftr)#.type(torch.double)
         #return torch.from_numpy(ftr).type(torch.double).to(self.device)
