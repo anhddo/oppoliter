@@ -1,6 +1,6 @@
 import argparse
 from os import path
-
+import time
 import matplotlib as mpl
 
 mpl.use("Agg")
@@ -8,6 +8,7 @@ import gym
 from linear_torch.lm import Model
 import pickle
 import torch
+import gym_cartpole_swingup
 
 
 if __name__ == "__main__":
@@ -15,12 +16,14 @@ if __name__ == "__main__":
     parser.add_argument("--env", default='CartPole-v0')
     parser.add_argument("--path")
     parser.add_argument("--beta", type=float, default=1)
-    parser.add_argument("--fourier-order", type=int, default=4)
     args = parser.parse_args()
     setting = vars(args)
     env = gym.make(setting['env'])
     observation_space = env.observation_space.shape[0]
-    action_space = env.action_space.n
+    if setting['env'] == 'CartPoleSwingUp-v0':
+        action_space = 2
+    else:
+        action_space = env.action_space.n
     #ftr_transform = FourierTransform(setting['fourier_range'], observation_space, env)
     device = torch.device('cpu')
     model = Model(0, 0, setting['beta'], device)
@@ -39,6 +42,7 @@ if __name__ == "__main__":
             print(episode_reward)
             episode_reward = 0
         env.render()
+        time.sleep(.01)
         action = model.choose_action(state, bonus=True).numpy()[0]
         next_state, reward, terminal, info = env.step(action)
         episode_reward += reward
