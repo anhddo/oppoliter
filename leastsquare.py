@@ -2,12 +2,12 @@ import argparse
 import os
 from os import path
 import torch
-from linear_torch.fourier_transform import FourierTransform
-from linear_torch.fourier_transform import FourierTransform
-from linear_torch.lm import Model
-from linear_torch.trajectory import Trajectory
-from linear_torch.leastsquare_qlearning import LeastSquareQLearning
-from linear_torch.env import EnvWrapper
+from linear.fourier_transform import FourierTransform
+from linear.fourier_transform import FourierTransform
+from linear.lm import Model
+from linear.trajectory import Trajectory
+from linear.leastsquare_qlearning import LeastSquareQLearning
+from linear.env import EnvWrapper
 import pickle
 import timeit
 
