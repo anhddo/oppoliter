@@ -64,9 +64,6 @@ if __name__ == "__main__":
             'feature dimension:', ftr_transform.dimension)
     print('---------------------')
 
-    with open(path.join(parent_dir, 'ftr_transform'), 'wb') as f:
-        pickle.dump(ftr_transform, f)
-
     with open(path.join(parent_dir, 'setting.txt'), 'w') as f:
         f.write(str(setting))
     run_time = []
@@ -91,6 +88,9 @@ if __name__ == "__main__":
         stop = timeit.default_timer()
 
         run_time.append('round:{}, {} s.'.format(i, stop - start))
+        with open(path.join(parent_dir, 'ftr_transform'), 'wb') as f:
+            pickle.dump(ftr_transform, f)
+
         print(setting['save_dir'])
         print('Run time:')
         print('\n'.join(run_time))
