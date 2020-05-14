@@ -1,6 +1,3 @@
-import matplotlib as mpl
-
-mpl.use("Agg")
 import pickle
 import torch
 

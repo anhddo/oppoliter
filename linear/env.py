@@ -26,7 +26,7 @@ class EnvWrapper:
 
         elif self.env_name == 'MountainCar-v0':
             self.max_clamp = 100
-            self.reset_tracking_value = -0.6
+            self.reset_tracking_value = self.env._max_episode_steps
 
         elif self.env_name == 'Acrobot-v1':
             self.max_clamp = 100
@@ -36,7 +36,6 @@ class EnvWrapper:
             self.min_clamp = -500
             self.max_clamp = 200
             self.reset_tracking_value = 0
-        self._max_episode_steps = self.env._max_episode_steps
 
         self.tracking_value = self.reset_tracking_value
 
@@ -57,20 +56,10 @@ class EnvWrapper:
             self.tracking_value += true_reward
 
         elif self.env_name == 'MountainCar-v0':
-            #if terminal and self.t < self.env._max_episode_steps:
-            #    modified_reward = self.max_clamp
-            #else:
-            #    modified_reward = 0
-            #    #modified_reward = np.exp(2*np.abs(state[0] + 0.6))
-            self.tracking_value = max(self.tracking_value, state[0])
+            self.tracking_value = self.t
 
         elif self.env_name == 'Acrobot-v1':
-            #height = -cos(state[0]) - cos(state[1] + state[0])
-            #self.tracking_value = max(self.tracking_value, height)
             self.tracking_value = self.t
-            #if terminal:
-            #    if self.t < self.env._max_episode_steps:
-            #        modified_reward = self.max_clamp
         elif self.env_name == 'LunarLander-v2':
             self.tracking_value += true_reward
 

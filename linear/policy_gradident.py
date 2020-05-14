@@ -7,7 +7,7 @@ POL = 1
 EPSILON_GREEDY = 2
 
 
-class LeastSquareQLearning:
+class PolicyGradient:
     def __init__(self, env, model, ftr_transform,
             trajectory_per_action, setting, device):
         self.name = "Least square value iteration"
