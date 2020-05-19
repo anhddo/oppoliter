@@ -15,6 +15,7 @@ import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
 import torchvision.transforms as T
+from tqdm import tqdm, trange
 from  torch.optim import lr_scheduler 
 
 from torch.utils.tensorboard import SummaryWriter
@@ -26,11 +27,14 @@ writer = SummaryWriter('logs/dqn-{}'.format(datetime.now()))
 parser = argparse.ArgumentParser(description="Finite-horizon MDP")
 parser.add_argument("--env", default='CartPole-v0')
 parser.add_argument("--step", type=int, default=10000)
+parser.add_argument("--embeded-size", type=int, default=16)
 parser.add_argument("--target-update", type=int, default=500)
 parser.add_argument("--optimistic", action="store_true")
 parser.add_argument("--algo", default='')
 parser.add_argument("--render", action="store_true")
+parser.add_argument("--cpu", action="store_true")
 parser.add_argument("--repeat", type=int, default=1)
+parser.add_argument("--batch-size", type=int, default=32)
 parser.add_argument("--beta", type=float, default=0.01)
 parser.add_argument("--start-index", type=int, default=0)
 parser.add_argument("--saved-dir")
@@ -46,13 +50,18 @@ torch.set_default_tensor_type(torch.DoubleTensor)
 # set up matplotlib
 
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-#device = torch.device('cpu')
+device = torch.device("cuda" if torch.cuda.is_available() and not setting['cpu'] else "cpu")
 
 
 
 Transition = namedtuple('Transition',
                         ('state', 'action', 'next_state', 'reward'))
+BATCH_SIZE = setting['batch_size']
+GAMMA = 0.99
+EPS_START = 0.9
+EPS_END = 0.1
+EPS_DECAY = setting['step'] / 10
+
 
 
 class ReplayMemory(object):
@@ -79,21 +88,25 @@ class ReplayMemory(object):
 class DQN(nn.Module):
     def __init__(self, input_dim, output_dim):
         super(DQN, self).__init__()
-        n = 64
-        #self.conv1 = nn.Linear(input_dim, n)
-        #self.conv2 = nn.Linear(n, n)
-        #self.conv3 = nn.Linear(n, 8)
-        self.conv1 = nn.Linear(input_dim, 512)
-        self.conv2 = nn.Linear(512, 256)
-        self.conv3 = nn.Linear(256, 64)
-        self.head = nn.Linear(64, output_dim)
-        self.cov = [torch.eye(8).to(device) * 1e-5] * n_actions
+        n = 24
+        self.ln1 = nn.Linear(input_dim, n)
+        self.ln2 = nn.Linear(n, n)
+        #self.ln3 = nn.Linear(n, n)
+        #self.ln4 = nn.Linear(n, n)
+        self.ln5 = nn.Linear(n, setting['embeded_size'])
+        #self.conv1 = nn.Linear(input_dim, 512)
+        #self.conv2 = nn.Linear(512, 256)
+        #self.conv3 = nn.Linear(256, EMBEDED_SIZE)
+        self.head = nn.Linear(setting['embeded_size'], output_dim)
+        self.cov = [torch.eye(setting['embeded_size']).to(device) * 1e-5] * n_actions
         self.inv_cov = [torch.inverse(M) for M in self.cov]
 
     def embeded_vector(self, x):
-        x = F.relu(self.conv1(x))
-        x = F.relu(self.conv2(x))
-        x = F.relu(self.conv3(x))
+        x = F.relu(self.ln1(x))
+        x = F.relu(self.ln2(x))
+        #x = F.relu(self.ln3(x))
+        #x = F.relu(self.ln4(x))
+        x = F.relu(self.ln5(x))
         return x
 
     def q(self, x):
@@ -112,15 +125,9 @@ class DQN(nn.Module):
             b = self.bonus(v)
             b = b.detach()
             o += b
-            o = torch.clamp(o, max=self.env._max_episode_step)
+            o = torch.clamp(o, max=env._max_episode_steps)
         return o
 
-
-BATCH_SIZE = 32
-GAMMA = 0.95
-EPS_START = 0.9
-EPS_END = 0.05
-EPS_DECAY = setting['step'] / 10
 
 
 
@@ -141,10 +148,12 @@ def no_explore(policy_net, state):
         assert action <=n_actions
         return action
 
+eps_threshold=1.
 def epsilon_greedy(policy_net, state, t):
+    global eps_threshold
     sample = random.random()
-    eps_threshold = EPS_END + (EPS_START - EPS_END) * \
-        math.exp(- t / (setting['step'] / 10))
+    eps_threshold = max(EPS_END, eps_threshold * 0.999)
+    #eps_threshold = EPS_END + (EPS_START - EPS_END) *  math.exp(- t / (setting['step'] / 10))
     #state = torch.tensor(state).view(-1, n_observations)
     writer.add_scalar('dqn/epsilon', eps_threshold, t)
     if sample > eps_threshold:
@@ -185,6 +194,7 @@ def optimize_model(policy_net, target_net, optimizer, memory, t):
 
     loss = F.mse_loss(state_action_values, expected_state_action_values.unsqueeze(1))
     #loss = F.smooth_l1_loss(state_action_values, expected_state_action_values.unsqueeze(1))
+    writer.add_scalar('dqn/Q', torch.mean(next_state_values), t)
 
     optimizer.zero_grad()
     loss.backward()
@@ -204,18 +214,18 @@ def training():
     state = torch.tensor([state], device=device)
     target_net.load_state_dict(policy_net.state_dict())
     target_net.eval()
-    optimizer = optim.RMSprop(policy_net.parameters())
-    #optimizer = optim.Adam(policy_net.parameters())
+    optimizer = optim.RMSprop(policy_net.parameters(), lr=0.00025)
 
     optimizer = optim.SGD(policy_net.parameters(), lr=0.01)
+    optimizer = optim.Adam(policy_net.parameters(), lr=0.001)
     #scheduler = lr_scheduler.LambdaLR(optimizer, lr_lambda=lambda x: 0.9993**x)
     scheduler = lr_scheduler.ExponentialLR(optimizer, gamma=0.9992)
     #scheduler = lr_scheduler.ReduceLROnPlateau(optimizer)
-    memory = ReplayMemory(10000)
+    memory = ReplayMemory(100000)
     ep_reward = 0
 
     max_position=-1
-    for t in range(setting['step']):
+    for t in trange(setting['step']):
         if setting['algo'] == 'greedy':
             action = epsilon_greedy(policy_net, state, t)
         elif setting['algo'] == 'no-explore':
