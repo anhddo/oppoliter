@@ -15,10 +15,18 @@ import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
 import torchvision.transforms as T
+from  torch.optim import lr_scheduler 
+
+from torch.utils.tensorboard import SummaryWriter
+from datetime import datetime
+
+# default `log_dir` is "runs" - we'll be more specific here
+writer = SummaryWriter('logs/dqn-{}'.format(datetime.now()))
 
 parser = argparse.ArgumentParser(description="Finite-horizon MDP")
 parser.add_argument("--env", default='CartPole-v0')
 parser.add_argument("--step", type=int, default=10000)
+parser.add_argument("--target-update", type=int, default=500)
 parser.add_argument("--optimistic", action="store_true")
 parser.add_argument("--algo", default='')
 parser.add_argument("--render", action="store_true")
@@ -38,9 +46,8 @@ torch.set_default_tensor_type(torch.DoubleTensor)
 # set up matplotlib
 
 
-# if gpu is to be used
-#device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-device = torch.device('cpu')
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+#device = torch.device('cpu')
 
 
 
@@ -72,15 +79,21 @@ class ReplayMemory(object):
 class DQN(nn.Module):
     def __init__(self, input_dim, output_dim):
         super(DQN, self).__init__()
-        self.conv1 = nn.Linear(input_dim, 32)
-        self.conv2 = nn.Linear(32, 8)
-        self.head = nn.Linear(8, output_dim)
+        n = 64
+        #self.conv1 = nn.Linear(input_dim, n)
+        #self.conv2 = nn.Linear(n, n)
+        #self.conv3 = nn.Linear(n, 8)
+        self.conv1 = nn.Linear(input_dim, 512)
+        self.conv2 = nn.Linear(512, 256)
+        self.conv3 = nn.Linear(256, 64)
+        self.head = nn.Linear(64, output_dim)
         self.cov = [torch.eye(8).to(device) * 1e-5] * n_actions
         self.inv_cov = [torch.inverse(M) for M in self.cov]
 
     def embeded_vector(self, x):
         x = F.relu(self.conv1(x))
         x = F.relu(self.conv2(x))
+        x = F.relu(self.conv3(x))
         return x
 
     def q(self, x):
@@ -99,21 +112,15 @@ class DQN(nn.Module):
             b = self.bonus(v)
             b = b.detach()
             o += b
-            o = torch.clamp(o, max=200)
+            o = torch.clamp(o, max=self.env._max_episode_step)
         return o
 
-def get_cart_location(screen_width):
-    world_width = env.x_threshold * 2
-    scale = screen_width / world_width
-    return int(env.state[0] * scale + screen_width / 2.0)  # MIDDLE OF CART
 
-
-BATCH_SIZE = 64
-GAMMA = 0.999
+BATCH_SIZE = 32
+GAMMA = 0.95
 EPS_START = 0.9
 EPS_END = 0.05
 EPS_DECAY = setting['step'] / 10
-TARGET_UPDATE = 50
 
 
 
@@ -137,8 +144,9 @@ def no_explore(policy_net, state):
 def epsilon_greedy(policy_net, state, t):
     sample = random.random()
     eps_threshold = EPS_END + (EPS_START - EPS_END) * \
-        math.exp(- t / (setting['step'] / 20))
+        math.exp(- t / (setting['step'] / 10))
     #state = torch.tensor(state).view(-1, n_observations)
+    writer.add_scalar('dqn/epsilon', eps_threshold, t)
     if sample > eps_threshold:
         return no_explore(policy_net, state)
     else:
@@ -151,7 +159,7 @@ episode_durations = []
 
 
 
-def optimize_model(policy_net, target_net, optimizer, memory):
+def optimize_model(policy_net, target_net, optimizer, memory, t):
     if len(memory) < BATCH_SIZE:
         return
     transitions = memory.sample(BATCH_SIZE)
@@ -170,12 +178,20 @@ def optimize_model(policy_net, target_net, optimizer, memory):
     next_state_values[non_final_mask] = target_net(non_final_next_states).max(1)[0].detach()
     expected_state_action_values = (next_state_values * GAMMA) + reward_batch
 
+    if setting['optimistic']:
+        v = policy_net.embeded_vector(state_batch)
+        b = policy_net.bonus(v)
+        writer.add_scalar('dqn/bonus', torch.mean(b), t)
+
     loss = F.mse_loss(state_action_values, expected_state_action_values.unsqueeze(1))
+    #loss = F.smooth_l1_loss(state_action_values, expected_state_action_values.unsqueeze(1))
+
     optimizer.zero_grad()
     loss.backward()
     for param in policy_net.parameters():
         param.grad.data.clamp_(-1, 1)
     optimizer.step()
+    return loss
 
 
 def training():
@@ -188,9 +204,14 @@ def training():
     state = torch.tensor([state], device=device)
     target_net.load_state_dict(policy_net.state_dict())
     target_net.eval()
-    optimizer = optim.Adam(policy_net.parameters())
-    #optimizer = optim.SGD(policy_net.parameters(), lr=0.01)
-    memory = ReplayMemory(50000)
+    optimizer = optim.RMSprop(policy_net.parameters())
+    #optimizer = optim.Adam(policy_net.parameters())
+
+    optimizer = optim.SGD(policy_net.parameters(), lr=0.01)
+    #scheduler = lr_scheduler.LambdaLR(optimizer, lr_lambda=lambda x: 0.9993**x)
+    scheduler = lr_scheduler.ExponentialLR(optimizer, gamma=0.9992)
+    #scheduler = lr_scheduler.ReduceLROnPlateau(optimizer)
+    memory = ReplayMemory(10000)
     ep_reward = 0
 
     max_position=-1
@@ -200,12 +221,10 @@ def training():
         elif setting['algo'] == 'no-explore':
             action = no_explore(policy_net, state)
         elif setting['optimistic']:
-            #print('optimistic')
             action = no_explore(policy_net, state)
             action_index = action.item()
 
             x = policy_net.embeded_vector(state)
-            #print(x)
             policy_net.cov[action_index] += x.T.mm(x)
             policy_net.inv_cov[action_index] = torch.inverse(policy_net.cov[action_index])
         action_index = action.item()
@@ -217,10 +236,14 @@ def training():
         reward = torch.tensor([reward], device=device)
         next_state = None if terminal else torch.tensor([next_state], device=device)
         memory.push(state, action, next_state, reward)
+
         if t > 500:
-            optimize_model(policy_net, target_net, optimizer, memory)
+            loss = optimize_model(policy_net, target_net, optimizer, memory, t)
+            writer.add_scalar('dqn/Loss', loss, t)
+            writer.add_scalar('dqn/lr', optimizer.param_groups[0]['lr'], t)
+            #scheduler.step()
         state = next_state
-        if t % TARGET_UPDATE == 0:
+        if t % setting['target_update'] == 0:
             target_net.load_state_dict(policy_net.state_dict())
             target_net.inv_cov = [e.detach().clone() for e in policy_net.inv_cov]
         if terminal:
@@ -228,12 +251,7 @@ def training():
             state = torch.tensor([state], device=device)
             reward_track.append(ep_reward)
             timestep.append(t)
-            print("time_step:{}, value:{}, max_position:{:2f}".format(t, ep_reward, max_position))
-            #o, v = policy_net.q(state)
-            #b = policy_net.bonus(v)
-            #print(o, b)
-            #print(policy_net.inv_cov[0])
-            #print(policy_net.cov[0])
+            writer.add_scalar('dqn/reward', ep_reward, t)
             max_position = -1
             ep_reward = 0
 
