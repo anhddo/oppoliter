@@ -35,7 +35,6 @@ parser.add_argument("--cpu", action="store_true")
 parser.add_argument("--repeat", type=int, default=1)
 parser.add_argument("--batch-size", type=int, default=32)
 parser.add_argument("--beta", type=float, default=0.01)
-parser.add_argument("--eps-factor", type=float, default=0.999)
 parser.add_argument("--start-index", type=int, default=0)
 parser.add_argument("--saved-dir")
 args = parser.parse_args()
@@ -58,9 +57,9 @@ device = torch.device("cuda" if torch.cuda.is_available() and not setting['cpu']
 Transition = namedtuple('Transition',
                         ('state', 'action', 'next_state', 'reward'))
 BATCH_SIZE = setting['batch_size']
-GAMMA = 0.95
+GAMMA = 0.99
 EPS_START = 0.9
-EPS_END = 0.01
+EPS_END = 0.1
 EPS_DECAY = setting['step'] / 10
 
 
@@ -93,15 +92,15 @@ class Memory:
         self._curr_insert_ptr = 0                   # index to insert next data sample
         self._curr_len = 0                          # number of currently stored elements
 
-        #state_arr_shape = [max_len] + list(state_shape)
+        state_arr_shape = [max_len] + list(state_shape)
 
-        self._hist_St = np.zeros((max_len, state_shape), dtype=state_dtype)
+        self._hist_St = np.zeros(state_arr_shape, dtype=state_dtype)
         self._hist_At = np.zeros(max_len, dtype=int)
         self._hist_Rt_1 = np.zeros(max_len, dtype=float)
-        self._hist_St_1 = np.zeros((max_len, state_shape), dtype=state_dtype)
+        self._hist_St_1 = np.zeros(state_arr_shape, dtype=state_dtype)
         self._hist_done_1 = np.zeros(max_len, dtype=bool)
 
-    def push(self, St, At, Rt_1, St_1, done_1):
+    def append(self, St, At, Rt_1, St_1, done_1):
         self._hist_St[self._curr_insert_ptr] = St
         self._hist_At[self._curr_insert_ptr] = At
         self._hist_Rt_1[self._curr_insert_ptr] = Rt_1
@@ -149,14 +148,8 @@ class DQN(nn.Module):
         self.head = nn.Linear(setting['embeded_size'], output_dim)
         self.cov = [torch.eye(setting['embeded_size']).to(device) * 1e-5] * n_actions
         self.inv_cov = [torch.inverse(M) for M in self.cov]
-        self.input_dim = input_dim
-        nn.init.kaiming_uniform_(self.ln1.weight, nonlinearity='relu')
-        nn.init.kaiming_uniform_(self.ln2.weight, nonlinearity='relu')
-        nn.init.kaiming_uniform_(self.ln5.weight, nonlinearity='relu')
-        nn.init.kaiming_uniform_(self.head.weight, nonlinearity='relu')
 
     def embeded_vector(self, x):
-        x = torch.tensor(x).view(-1, self.input_dim).to(device)
         x = F.relu(self.ln1(x))
         x = F.relu(self.ln2(x))
         #x = F.relu(self.ln3(x))
@@ -185,6 +178,11 @@ class DQN(nn.Module):
         return o
 
 
+
+
+
+
+
 steps_done = 0
 
 
@@ -203,7 +201,7 @@ eps_threshold=1.
 def epsilon_greedy(policy_net, state, t):
     global eps_threshold
     sample = random.random()
-    eps_threshold = max(EPS_END, eps_threshold * setting['eps_factor'])
+    eps_threshold = max(EPS_END, eps_threshold * 0.999)
     #eps_threshold = EPS_END + (EPS_START - EPS_END) *  math.exp(- t / (setting['step'] / 10))
     #state = torch.tensor(state).view(-1, n_observations)
     writer.add_scalar('dqn/epsilon', eps_threshold, t)
@@ -222,23 +220,19 @@ episode_durations = []
 def optimize_model(policy_net, target_net, optimizer, memory, t):
     if len(memory) < BATCH_SIZE:
         return
-    states, actions, rewards, n_states, dones, _ = memory.get_batch(BATCH_SIZE)
-    states = torch.tensor(states).to(device)
-    actions = torch.tensor(actions).to(device)
-    rewards = torch.tensor(rewards).to(device)
-    n_states = torch.tensor(n_states).to(device)
-    target_Q = target_net(n_states).detach().max(1)[0]
-    Q = policy_net(states).gather(1, actions.view(-1,1)).to(device)
-    target_Q = rewards + GAMMA * target_Q
-    target_Q[dones] = rewards[dones]
+    states, actions, rewards, n_states, dones, _ = mem.get_batch(batch_size)
+    targets = policy_net(n_states)
+    targets = rewards + GAMMA * np.max(targets, axis=-1)
+    targets[dones] = rewards[dones]
 
     if setting['algo'] == 'optimistic':
-        v = policy_net.embeded_vector(states)
+        v = policy_net.embeded_vector(state_batch)
         b = policy_net.bonus(v)
         writer.add_scalar('dqn/bonus', torch.mean(b), t)
 
-    loss = F.mse_loss(Q, target_Q.unsqueeze(1))
-    writer.add_scalar('dqn/Q', torch.mean(Q), t)
+    loss = F.mse_loss(state_action_values, expected_state_action_values.unsqueeze(1))
+    #loss = F.smooth_l1_loss(state_action_values, expected_state_action_values.unsqueeze(1))
+    writer.add_scalar('dqn/Q', torch.mean(next_state_values), t)
 
     optimizer.zero_grad()
     loss.backward()
@@ -255,17 +249,17 @@ def training():
     timestep = []
     terminal = True
     state = env.reset()
-    #state = torch.tensor([state], device=device)
+    state = torch.tensor([state], device=device)
     target_net.load_state_dict(policy_net.state_dict())
     target_net.eval()
 
     optimizer = optim.Adam(policy_net.parameters(), lr=0.001)
-    optimizer = optim.SGD(policy_net.parameters(), lr=0.001)
-    #optimizer = optim.RMSprop(policy_net.parameters(), lr=0.00025)
+    optimizer = optim.SGD(policy_net.parameters(), lr=0.01)
+    optimizer = optim.RMSprop(policy_net.parameters(), lr=0.00025)
     #scheduler = lr_scheduler.LambdaLR(optimizer, lr_lambda=lambda x: 0.9993**x)
     scheduler = lr_scheduler.ExponentialLR(optimizer, gamma=0.9992)
     #scheduler = lr_scheduler.ReduceLROnPlateau(optimizer)
-    memory = Memory(100000, n_observations, np.float)
+    memory = Memory(100000)
     ep_reward = 0
 
     max_position=-1
@@ -283,6 +277,7 @@ def training():
             #policy_net.inv_cov[action_index] = torch.inverse(policy_net.cov[action_index])
             A = policy_net.inv_cov[action_index]
             policy_net.inv_cov[action_index] -= A.mm(x.T).mm(x.mm(A)) / (1. + x.mm(A).mm(x.T))
+
         action_index = action.item()
         next_state, reward, terminal, _ = env.step(action_index)
         max_position = max(max_position, next_state[0])
@@ -290,22 +285,22 @@ def training():
             env.render()
         ep_reward += reward
         reward = torch.tensor([reward], device=device)
-        #next_state = None if terminal else torch.tensor([next_state], device=device)
-        memory.push(state, action, reward, next_state, terminal)
+        next_state = None if terminal else torch.tensor([next_state], device=device)
+        memory.push(state, action, next_state, reward)
 
-        state = next_state
-        if t > setting['batch_size'] * 3 and t % 2 == 0:
+        if t > setting['batch_size']:
             loss = optimize_model(policy_net, target_net, optimizer, memory, t)
             writer.add_scalar('dqn/Loss', loss, t)
             writer.add_scalar('dqn/lr', optimizer.param_groups[0]['lr'], t)
             #scheduler.step()
+        state = next_state
         if t % setting['target_update'] == 0:
             target_net.load_state_dict(policy_net.state_dict())
             if setting['algo'] == 'optimistic':
                 target_net.inv_cov = [e.detach().clone() for e in policy_net.inv_cov]
         if terminal:
             state = env.reset()
-            #state = torch.tensor([state], device=device)
+            state = torch.tensor([state], device=device)
             reward_track.append(ep_reward)
             timestep.append(t)
             writer.add_scalar('dqn/reward', ep_reward, t)

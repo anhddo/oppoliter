@@ -7,10 +7,10 @@ POL = 1
 EPSILON_GREEDY = 2
 
 
-class LeastSquareQLearning:
+class Politex:
     def __init__(self, env, model, ftr_transform,
             trajectory_per_action, setting, device):
-        self.name = "Least square value iteration"
+        self.name = "Politex"
         self.regulization_matrix = setting['lambda'] * torch.eye(ftr_transform.dimension)
         self.env = env
         self.ftr_transform = ftr_transform
@@ -86,13 +86,13 @@ class LeastSquareQLearning:
         self.env.reset()
         return target_track, time_step
 
-    #def update_cov(self):
-    #    for ls_model, trajectory in zip(self.model.action_model, self.trajectory_per_action):
-    #        state, _, _, _ = trajectory.get_past_data()
-    #        if state.shape[0] == 0:
-    #            continue
-    #        ls_model.cov = state.T.mm(state) + self.regulization_matrix
-    #        ls_model.inv_cov = torch.inverse(ls_model.cov)
+    def update_cov(self):
+        for ls_model, trajectory in zip(self.model.action_model, self.trajectory_per_action):
+            state, _, _, _ = trajectory.get_past_data()
+            if state.shape[0] == 0:
+                continue
+            ls_model.cov = state.T.mm(state) + self.regulization_matrix
+            ls_model.inv_cov = torch.inverse(ls_model.cov)
 
 
     def next_state_policy(self):
@@ -126,6 +126,6 @@ class LeastSquareQLearning:
             Q = torch.clamp(Q, max=self.env.max_clamp)
             ls_model.w = ls_model.inv_cov.to(self.device).mm(state.T.mm(Q)).cpu()
             assert Q.shape[1] == 1
-            #assert ls_model.cov.shape == (self.model.D, self.model.D)
+            assert ls_model.cov.shape == (self.model.D, self.model.D)
             assert ls_model.inv_cov.shape == (self.model.D, self.model.D)
             assert ls_model.w.shape == (self.model.D, 1)

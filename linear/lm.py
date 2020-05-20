@@ -7,8 +7,8 @@ class LeastSquareModel(object):
     def __init__(self, D, beta, device):
         self.w = torch.zeros(D, 1)
         #self.w = torch.rand(D, 1, dtype=torch.double, device=device) * 2 - 2
-        self.cov = 1e-7 * torch.eye(self.w.shape[0])
-        self.inv_cov = torch.inverse(self.cov)
+        #self.cov = 
+        self.inv_cov = 1e6 * torch.eye(self.w.shape[0])
         self.beta = beta
         self.device = device
 
@@ -31,8 +31,10 @@ class LeastSquareModel(object):
         return v.view(-1, 1)
 
     def update_cov(self, x):
-        self.cov += x.T.mm(x)
-        self.inv_cov = torch.inverse(self.cov)
+        #self.cov += x.T.mm(x)
+        #self.inv_cov = torch.inverse(self.cov)
+        A = self.inv_cov
+        self.inv_cov -= A.mm(x.T).mm(x.mm(A)) / (1. + x.mm(A).mm(x.T))
 
     def convert_to_cpu(self):
         self.w = self.w.cpu()

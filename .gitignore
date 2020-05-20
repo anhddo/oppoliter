@@ -10,4 +10,6 @@ record/
 train_result/
 .ipynb_checkpoints/
 **/__pycache__
+DNNs/logs
+DNNs/tmp
 

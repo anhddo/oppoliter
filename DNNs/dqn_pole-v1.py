@@ -34,8 +34,8 @@ parser.add_argument("--render", action="store_true")
 parser.add_argument("--cpu", action="store_true")
 parser.add_argument("--repeat", type=int, default=1)
 parser.add_argument("--batch-size", type=int, default=32)
-parser.add_argument("--beta", type=float, default=0.01)
 parser.add_argument("--eps-factor", type=float, default=0.999)
+parser.add_argument("--beta", type=float, default=0.01)
 parser.add_argument("--start-index", type=int, default=0)
 parser.add_argument("--saved-dir")
 args = parser.parse_args()
@@ -58,9 +58,9 @@ device = torch.device("cuda" if torch.cuda.is_available() and not setting['cpu']
 Transition = namedtuple('Transition',
                         ('state', 'action', 'next_state', 'reward'))
 BATCH_SIZE = setting['batch_size']
-GAMMA = 0.95
+GAMMA = 0.99
 EPS_START = 0.9
-EPS_END = 0.01
+EPS_END = 0.1
 EPS_DECAY = setting['step'] / 10
 
 
@@ -137,31 +137,19 @@ class Memory:
 class DQN(nn.Module):
     def __init__(self, input_dim, output_dim):
         super(DQN, self).__init__()
-        n = 24
-        self.ln1 = nn.Linear(input_dim, n)
-        self.ln2 = nn.Linear(n, n)
-        #self.ln3 = nn.Linear(n, n)
-        #self.ln4 = nn.Linear(n, n)
-        self.ln5 = nn.Linear(n, setting['embeded_size'])
-        #self.conv1 = nn.Linear(input_dim, 512)
-        #self.conv2 = nn.Linear(512, 256)
-        #self.conv3 = nn.Linear(256, EMBEDED_SIZE)
+        self.ln1 = nn.Linear(input_dim, 512)
+        self.ln2 = nn.Linear(512, 256)
+        self.ln3 = nn.Linear(256, setting['embeded_size'])
         self.head = nn.Linear(setting['embeded_size'], output_dim)
         self.cov = [torch.eye(setting['embeded_size']).to(device) * 1e-5] * n_actions
         self.inv_cov = [torch.inverse(M) for M in self.cov]
         self.input_dim = input_dim
-        nn.init.kaiming_uniform_(self.ln1.weight, nonlinearity='relu')
-        nn.init.kaiming_uniform_(self.ln2.weight, nonlinearity='relu')
-        nn.init.kaiming_uniform_(self.ln5.weight, nonlinearity='relu')
-        nn.init.kaiming_uniform_(self.head.weight, nonlinearity='relu')
 
     def embeded_vector(self, x):
-        x = torch.tensor(x).view(-1, self.input_dim).to(device)
+        x = torch.tensor(x).to(device).view(-1, self.input_dim)
         x = F.relu(self.ln1(x))
         x = F.relu(self.ln2(x))
-        #x = F.relu(self.ln3(x))
-        #x = F.relu(self.ln4(x))
-        x = F.relu(self.ln5(x))
+        x = F.relu(self.ln3(x))
         return x
 
     def q(self, x):
@@ -183,6 +171,7 @@ class DQN(nn.Module):
                 o += b
         o = torch.clamp(o, max=env._max_episode_steps)
         return o
+
 
 
 steps_done = 0
@@ -260,8 +249,8 @@ def training():
     target_net.eval()
 
     optimizer = optim.Adam(policy_net.parameters(), lr=0.001)
-    optimizer = optim.SGD(policy_net.parameters(), lr=0.001)
-    #optimizer = optim.RMSprop(policy_net.parameters(), lr=0.00025)
+    optimizer = optim.SGD(policy_net.parameters(), lr=0.01)
+    optimizer = optim.RMSprop(policy_net.parameters(), lr=0.00025)
     #scheduler = lr_scheduler.LambdaLR(optimizer, lr_lambda=lambda x: 0.9993**x)
     scheduler = lr_scheduler.ExponentialLR(optimizer, gamma=0.9992)
     #scheduler = lr_scheduler.ReduceLROnPlateau(optimizer)
@@ -283,6 +272,7 @@ def training():
             #policy_net.inv_cov[action_index] = torch.inverse(policy_net.cov[action_index])
             A = policy_net.inv_cov[action_index]
             policy_net.inv_cov[action_index] -= A.mm(x.T).mm(x.mm(A)) / (1. + x.mm(A).mm(x.T))
+
         action_index = action.item()
         next_state, reward, terminal, _ = env.step(action_index)
         max_position = max(max_position, next_state[0])
@@ -294,7 +284,7 @@ def training():
         memory.push(state, action, reward, next_state, terminal)
 
         state = next_state
-        if t > setting['batch_size'] * 3 and t % 2 == 0:
+        if t > setting['batch_size']:
             loss = optimize_model(policy_net, target_net, optimizer, memory, t)
             writer.add_scalar('dqn/Loss', loss, t)
             writer.add_scalar('dqn/lr', optimizer.param_groups[0]['lr'], t)
