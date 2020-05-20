@@ -16,7 +16,7 @@ import torch.optim as optim
 import torch.nn.functional as F
 import torchvision.transforms as T
 from tqdm import tqdm, trange
-from  torch.optim import lr_scheduler 
+from  torch.optim import lr_scheduler
 
 from torch.utils.tensorboard import SummaryWriter
 from datetime import datetime
@@ -41,10 +41,12 @@ parser.add_argument("--saved-dir")
 args = parser.parse_args()
 setting = vars(args)
 
-writer = SummaryWriter( 'logs/{}-bs{}-ut-{}'.format(
+writer = SummaryWriter( 'logs/{}-{}-bs{}-ut-{}-{}'.format(
+    setting['env'],
     setting['algo'],
     setting['batch_size'],
-    setting['target_update']
+    setting['target_update'],
+    datetime.now()
     ))
 env = gym.make(setting['env'])
 n_actions = env.action_space.n
@@ -198,22 +200,25 @@ episode_durations = []
 def optimize_model(policy_net, target_net, optimizer, memory, t):
     if len(memory) < setting['batch_size']:
         return
-    states, actions, rewards, n_states, dones, _ = memory.get_batch(setting['batch_size'])
-    states = torch.tensor(states).to(device)
-    actions = torch.tensor(actions).to(device)
-    rewards = torch.tensor(rewards).to(device)
-    n_states = torch.tensor(n_states).to(device)
-    target_Q = target_net(n_states).detach().max(1)[0]
-    Q = policy_net(states).gather(1, actions.view(-1,1)).to(device)
-    target_Q = rewards + GAMMA * target_Q
-    target_Q[dones] = rewards[dones]
+    s0, a0, r, s1, dones, _ = memory.get_batch(setting['batch_size'])
+    s0 = torch.tensor(s0).to(device)
+    a0 = torch.tensor(a0).to(device)
+    r = torch.tensor(r).to(device)
+    s1 = torch.tensor(s1).to(device)
+
+
+    action1 = policy_net(s1).max(1)[1].view(-1, 1)
+    Q1 = policy_net(s1).gather(1, action1.view(-1, 1)).squeeze(1)
+    Q = policy_net(s0).gather(1, a0.view(-1, 1)).squeeze(1)
+    Q1 = r + GAMMA * Q1
+    Q1[dones] = r[dones]
 
     if setting['algo'] == 'optimistic':
-        v = policy_net.embeded_vector(states)
+        v = policy_net.embeded_vector(s0)
         b = policy_net.bonus(v)
         writer.add_scalar('dqn/bonus', torch.mean(b), t)
 
-    loss = F.mse_loss(Q, target_Q.unsqueeze(1))
+    loss = F.mse_loss(Q, Q1)
     writer.add_scalar('dqn/Q', torch.mean(Q), t)
 
     optimizer.zero_grad()
@@ -255,7 +260,7 @@ def training():
             action = no_explore(policy_net, state0)
             action_index = action.item()
 
-            x = policy_net.embeded_vector(state)
+            x = policy_net.embeded_vector(state0)
             #policy_net.cov[action_index] += x.T.mm(x)
             #policy_net.inv_cov[action_index] = torch.inverse(policy_net.cov[action_index])
             A = policy_net.inv_cov[action_index]
