@@ -126,23 +126,23 @@ class Memory:
 class DQN(nn.Module):
     def __init__(self, input_dim, output_dim):
         super(DQN, self).__init__()
-        n = 24
+        n = 64
         self.ln1 = nn.Linear(input_dim, n)
-        self.ln2 = nn.Linear(n, n)
+        #self.ln2 = nn.Linear(n, n)
         self.ln5 = nn.Linear(n, setting['embeded_size'])
         self.head = nn.Linear(setting['embeded_size'], output_dim)
-        self.cov = [torch.eye(setting['embeded_size']).to(device) * 1e-5] * n_actions
-        self.inv_cov = [torch.inverse(M) for M in self.cov]
+        self.inv_cov = [torch.eye(setting['embeded_size']).to(device) * 1e5] * n_actions
+        #self.inv_cov = [torch.inverse(M) for M in self.cov]
         self.input_dim = input_dim
         nn.init.kaiming_uniform_(self.ln1.weight, nonlinearity='relu')
-        nn.init.kaiming_uniform_(self.ln2.weight, nonlinearity='relu')
+        #nn.init.kaiming_uniform_(self.ln2.weight, nonlinearity='relu')
         nn.init.kaiming_uniform_(self.ln5.weight, nonlinearity='relu')
         nn.init.kaiming_uniform_(self.head.weight, nonlinearity='relu')
 
     def embeded_vector(self, x):
         x = x.view(-1, self.input_dim).to(device)
         x = F.relu(self.ln1(x))
-        x = F.relu(self.ln2(x))
+        #x = F.relu(self.ln2(x))
         x = F.relu(self.ln5(x))
         return x
 
@@ -158,10 +158,10 @@ class DQN(nn.Module):
 
     def forward(self, x):
         o, v = self.q(x)
-        if setting['algo'] == 'optimistic':
-            with torch.no_grad():
-                b = self.bonus(v)
-                o += b
+        #if setting['algo'] == 'optimistic':
+        #    #with torch.no_grad():
+        #    b = self.bonus(v).detach()
+        #    o += b
         #o = torch.clamp(o, max=env._max_episode_steps)
         return o
 
@@ -173,7 +173,9 @@ policy_net, target_net = None, None
 
 def no_explore(policy_net, state):
     with torch.no_grad():
-        action = policy_net(state).max(1)[1].view(1,1)
+        #import pdb; pdb.set_trace();
+        o, v = policy_net.q(state)
+        action = (o + policy_net.bonus(v)).max(1)[1].view(1,1)
         assert action <=n_actions
         return action
 
@@ -259,12 +261,12 @@ def training():
         elif setting['algo'] == 'optimistic':
             action = no_explore(policy_net, state0)
             action_index = action.item()
-
             x = policy_net.embeded_vector(state0)
             #policy_net.cov[action_index] += x.T.mm(x)
             #policy_net.inv_cov[action_index] = torch.inverse(policy_net.cov[action_index])
             A = policy_net.inv_cov[action_index]
-            policy_net.inv_cov[action_index] -= A.mm(x.T).mm(x.mm(A)) / (1. + x.mm(A).mm(x.T))
+            #policy_net.inv_cov[action_index] = 0.99999 * A - A.mm(x.T).mm(x.mm(A)) / (1. + x.mm(A).mm(x.T))
+            policy_net.inv_cov[action_index] = A - A.mm(x.T).mm(x.mm(A)) / (1. + x.mm(A).mm(x.T))
         action_index = action.item()
         next_state, reward, terminal, _ = env.step(action_index)
         max_position = max(max_position, next_state[0])
@@ -285,6 +287,11 @@ def training():
                 target_net.load_state_dict(policy_net.state_dict())
                 if setting['algo'] == 'optimistic':
                     target_net.inv_cov = [e.detach().clone() for e in policy_net.inv_cov]
+        #print(t)
+        #import pdb; pdb.set_trace();
+        #if t > 0 and t % 30000 == 0:
+        #    policy_net.inv_cov = [torch.eye(setting['embeded_size']).to(device) * 1e5] * n_actions
+        #    target_net.inv_cov = [torch.eye(setting['embeded_size']).to(device) * 1e5] * n_actions
         if terminal:
             state = env.reset()
             reward_track.append(ep_reward)

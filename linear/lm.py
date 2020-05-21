@@ -31,8 +31,6 @@ class LeastSquareModel(object):
         return v.view(-1, 1)
 
     def update_cov(self, x):
-        #self.cov += x.T.mm(x)
-        #self.inv_cov = torch.inverse(self.cov)
         A = self.inv_cov
         self.inv_cov -= A.mm(x.T).mm(x.mm(A)) / (1. + x.mm(A).mm(x.T))
 
@@ -47,6 +45,7 @@ class Model:
         self.action_count = [0, 0]
         self.action_model = [LeastSquareModel(ftr_size, beta, device) for _ in range(action_space)]
         self.D = ftr_size
+        self.beta = beta
 
     def choose_action(self, state, bonus=True):
         m = self.predict(state, bonus)
@@ -56,6 +55,26 @@ class Model:
         m = [m.predict(state, bonus) for m in self.action_model]
         m = torch.stack(m, dim=1).squeeze(2)
         return m
+
+    def update(self, trajectory_list, env, discount, device, bonus=False, policy=None):
+        policy = policy if policy else [None] * len(self.action_model)
+        for ls_model, trajectory, policy_per_action in zip(self.action_model, trajectory_list, policy):
+            state, reward, next_state, terminal = trajectory.get_past_data()
+            if state.shape[0] == 0:
+                continue
+            reward = reward.view(-1, 1)
+            terminal = terminal.view(-1, 1)
+            Q_next = self.predict(next_state, bonus)
+            if policy_per_action != None:
+                V_next = Q_next.gather(1, policy_per_action.view(-1, 1))
+            else:
+                V_next = Q_next.max(dim=1)[0].view(-1, 1)
+            Q = (reward + discount * V_next) * (1 - terminal)
+            Q = torch.clamp(Q, max=env.max_clamp)
+            ls_model.w = ls_model.inv_cov.to(device).mm(state.T.mm(Q)).cpu()
+            assert Q.shape[1] == 1
+            assert ls_model.inv_cov.shape == (self.D, self.D)
+            assert ls_model.w.shape == (self.D, 1)
 
     def clear_trajectory(self):
         for lm in self.action_model:
@@ -69,8 +88,6 @@ class Model:
     def save(self, path):
         with open(path, 'wb') as f:
             self.clear_trajectory()
-            #for lm in self.action_model:
-            #    lm.convert_to_cpu()
             pickle.dump(self.__dict__, f)
 
 

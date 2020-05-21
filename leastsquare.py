@@ -3,14 +3,15 @@ import os
 from os import path
 import torch
 from linear.fourier_transform import FourierTransform
-from linear.fourier_transform import FourierTransform
 from linear.lm import Model
 from linear.trajectory import Trajectory
 from linear.leastsquare_qlearning import LeastSquareQLearning
+from linear.politex import Politex
 from linear.env import EnvWrapper
 import pickle
 import timeit
-
+from torch.utils.tensorboard import SummaryWriter
+from tqdm import tqdm, trange
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Finite-horizon MDP")
@@ -20,11 +21,14 @@ if __name__ == "__main__":
     parser.add_argument("--epsilon", type=float, default=0.1)
     parser.add_argument("--n-eval", type=int, default=5)
     parser.add_argument("--sample-len", type=int, default=1000)
+    parser.add_argument("--T", type=int, default=5)
+    parser.add_argument("--tau", type=int, default=1000)
     parser.add_argument("--lambda", type=float, default=1)
+    parser.add_argument("--lr", type=float, default=1)
     parser.add_argument("--env", default='CartPole-v0')
-    parser.add_argument("--render", action="store_true", default=False)
+    parser.add_argument("--render", action="store_true")
     parser.add_argument("--cpu", action="store_true")
-    parser.add_argument("--bonus", type=int, default=1)
+    parser.add_argument("--bonus", action='store_true')
     parser.add_argument("--step", type=int, default=10000)
     parser.add_argument("--repeat", type=int, default=1)
     parser.add_argument("--discount", type=float, default=0.999)
@@ -35,16 +39,16 @@ if __name__ == "__main__":
     setting['tmp_dir'] = '/tmp/oppoliter'
 
     device = torch.device('cpu')
-    if not setting['cpu'] and torch.cuda.is_available():
-        device = torch.device('cuda')
+    device = torch.device('cuda' if torch.cuda.is_available() \
+            and not setting['cpu'] else 'cpu')
 
-    assert setting['algo'] in ['val', 'pol', 'ep-gr']
+    assert setting['algo'] in ['val', 'pol', 'ep-gr', 'politex']
 
     key = ['algo',  'env', 'fourier_order', 'beta', 'lambda', 'step',
             'discount', 'sample_len', 'n_eval', 'bonus'
             ]
-    s = '-'.join(['{}-{}'.format(e, setting[e]) for e in key])
-    setting['save_dir'] = 'tmp/' + s
+    setting_str = '-'.join(['{}-{}'.format(e, setting[e]) for e in key])
+    setting['save_dir'] = 'tmp/' + setting_str
 
     env = EnvWrapper(setting['env'])
 
@@ -67,31 +71,34 @@ if __name__ == "__main__":
     with open(path.join(parent_dir, 'setting.txt'), 'w') as f:
         f.write(str(setting))
     run_time = []
+    trajectory_size = setting['step']
+    if setting['algo'] == 'politex':
+        trajectory_size = setting['tau'] * setting['T']
     trajectory_per_action = [
-        Trajectory(ftr_transform.dimension, device, setting['step'])
+        Trajectory(ftr_transform.dimension, device, trajectory_size)
             for _ in range(env.action_space)
     ]
 
 
-    for i in range(setting['start_index'], setting['start_index'] + setting['repeat']):
+    for i in trange(setting['start_index'], setting['start_index'] + setting['repeat']):
         model = Model(ftr_transform.dimension, env.action_space, setting['beta'], device)
         for trajectory in trajectory_per_action:
             trajectory.reset()
 
-        algo = LeastSquareQLearning(env, model, ftr_transform, trajectory_per_action, setting, device)
+        if setting['algo'] == 'politex':
+            algo = Politex(env, model, ftr_transform, \
+                    trajectory_per_action, setting, device)
+        else:
+            algo = LeastSquareQLearning(env, model, ftr_transform, \
+                    trajectory_per_action, setting, device)
 
         start = timeit.default_timer()
-        reward_track, time_step = algo.train()
+        reward_track, time_step = algo.train(i)
         model.save(setting['model_path'])
         with open(path.join(parent_dir, 'result{}.pkl'.format(i)), 'wb') as f:
             pickle.dump([reward_track, time_step], f)
         stop = timeit.default_timer()
 
-        run_time.append('round:{}, {} s.'.format(i, stop - start))
+        #run_time.append('round:{}, {} s.'.format(i, stop - start))
         with open(path.join(parent_dir, 'ftr_transform'), 'wb') as f:
             pickle.dump(ftr_transform, f)
-
-        print(setting['save_dir'])
-        print('Run time:')
-        print('\n'.join(run_time))
-
