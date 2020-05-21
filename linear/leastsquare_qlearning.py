@@ -29,7 +29,7 @@ class LeastSquareQLearning:
         if setting['algo'] == 'val':
             self.algo = VAL
         if setting['algo'] == 'pol':
-            self.algo = VAL
+            self.algo = POL
         if setting['algo'] == 'ep-gr':
             self.algo = EPSILON_GREEDY
 
@@ -78,6 +78,9 @@ class LeastSquareQLearning:
 
             for _ in range(self.n_eval):
                 self.model.update(self.trajectory_per_action, self.env, self.discount, self.device, self.bonus, policy)
+            #print(self.model.action_model[0].w.T)
+            #print(self.model.action_model[1].w.T)
+            #import pdb; pdb.set_trace();
         self.env.reset()
         pbar.close()
         return target_track, time_step
@@ -89,11 +92,12 @@ class LeastSquareQLearning:
         for ls_model, trajectory in zip(self.model.action_model, self.trajectory_per_action):
             state, reward, next_state, terminal = trajectory.get_past_data()
             if state.shape[0] == 0:
+                policy.append(None)
                 continue
             reward = reward.view(-1, 1)
             terminal = terminal.view(-1, 1)
             Q_next = self.model.predict(next_state, self.bonus)
-            V_next, index = torch.max(Q_next, dim=1)
+            _, index = torch.max(Q_next, dim=1)
             policy.append(index)
         return policy
 

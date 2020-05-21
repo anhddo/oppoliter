@@ -55,7 +55,7 @@ class Politex:
 
         expert = Model(self.model.action_model[0].w.shape[0],
                 self.env.action_space, self.model.beta, self.device)
-        pbar = tqdm(total=self.total_step, leave=True)
+        #pbar = tqdm(total=self.total_step, leave=True)
         for i in range(self.T):
             for _ in range(self.tau):
                 t += 1
@@ -72,8 +72,9 @@ class Politex:
                     episode_count += 1
 
                 q = self.model.predict(state, self.bonus).squeeze(0).cpu().numpy()
-                d = softmax(-self.lr * q)
+                d = softmax(self.lr * q)
                 action = np.random.choice(self.env.action_space, 1, p=d)[0]
+                #action = self.model.choose_action(state, self.bonus).cpu().numpy()[0]
                 self.model.action_count[action]+=1
 
                 self.model.action_model[action].update_cov(state)
@@ -87,24 +88,29 @@ class Politex:
                 e.reset_zeros()
                 e.inv_cov = m.inv_cov
             policy = self.next_state_policy()
-            #print(self.trajectory_per_action[0].index)
-            #print(self.trajectory_per_action[1].index)
-            print(q)
             for _ in range(self.n_eval):
-                expert.update(self.trajectory_per_action,
+                expert.update(
+                        self.trajectory_per_action,
                         self.env,
                         self.discount,
                         self.device,
-                        self.bonus, policy)
+                        self.bonus,
+                        policy
+                    )
             #print(94,expert.action_model[0].w.T)
             #print(95, expert.action_model[1].w.T)
+            print(self.model.action_count, q/i)
             #import pdb; pdb.set_trace();
-            print(self.model.action_count)
 
 
             for e, m in zip(expert.action_model, self.model.action_model):
                 m.w += e.w
-            print(99,self.model.action_model[0].w.T)
+            #print(96, self.trajectory_per_action[0].index)
+            #print(97, self.trajectory_per_action[1].index)
+            #print(97, self.trajectory_per_action[1].get_past_data())
+            #import pdb; pdb.set_trace();
+            #print(98,self.model.action_model[0].w.T)
+            #print(99,self.model.action_model[1].w.T)
 
         self.env.reset()
         return target_track, time_step
@@ -114,10 +120,12 @@ class Politex:
         for ls_model, trajectory in zip(self.model.action_model, self.trajectory_per_action):
             state, reward, next_state, terminal = trajectory.get_past_data()
             if state.shape[0] == 0:
+                policy.append(None)
                 continue
             reward = reward.view(-1, 1)
             terminal = terminal.view(-1, 1)
             Q_next = self.model.predict(next_state, self.bonus)
             V_next, index = torch.max(Q_next, dim=1)
             policy.append(index)
+        #import pdb; pdb.set_trace();
         return policy
