@@ -5,18 +5,17 @@ from linear.lm import Model
 import copy
 from tqdm import tqdm
 from scipy.special import softmax
-
-VAL = 0
-POL = 1
-EPSILON_GREEDY = 2
+from .utils import initialize
+from .lm import Model
+from os import path
+import pickle
 
 
 class Politex:
-    def __init__(:
+    def __init__(self):
         name = "Politex"
 
-
-    def train( train_index, save_dir):
+    def train(self, train_index, setting):
         init = initialize(setting)
         env, trajectory, model, ftr_transform, device =\
                 init['env'], init['trajectory'], init['model'],\
@@ -29,10 +28,11 @@ class Politex:
         episode_count = 0
         env.reset()
         t = -1
+        expert = Model(setting, device)
 
         pbar = tqdm(total=setting['horizon_len'], leave=True)
-        for i in range(T):
-            for _ in range(tau):
+        for i in range(setting['T']):
+            for _ in range(setting['tau']):
                 t += 1
                 pbar.update()
                 if terminal:
@@ -43,31 +43,22 @@ class Politex:
                     state = ftr_transform.transform(state)
                     episode_count += 1
 
-                q = model.predict(state, setting['bonus']).squeeze(0).cpu().numpy()
+                q = model.Q(state, setting['bonus']).squeeze(0).cpu().numpy()
                 d = softmax(setting['lr'] * q)
                 action = np.random.choice(env.action_space, 1, p=d)[0]
-                model.action_count[action]+=1
+                #model.action_count[action]+=1
 
                 model.action_model[action].update_cov(state)
                 next_state, true_reward, modified_reward, terminal, info = env.step(action)
                 sum_modified_reward += modified_reward
                 next_state = ftr_transform.transform(next_state)
-                trajectory_per_action[action].append(state, modified_reward, next_state, terminal)
+                trajectory[action].append(state, modified_reward, next_state, terminal)
                 state = next_state
 
             for e, m in zip(expert.action_model, model.action_model):
                 e.reset_zeros()
                 e.inv_cov = m.inv_cov
-            policy = next_state_policy()
-            for _ in range(n_eval):
-                expert.update(
-                        trajectory_per_action,
-                        env,
-                        discount,
-                        device,
-                        setting['bonus'],
-                        policy
-                    )
+
             policy = []
             for trajectory_per_action in trajectory:
                 _, _, next_state, _ = trajectory_per_action.get_past_data()
@@ -76,11 +67,14 @@ class Politex:
                 else:
                     policy.append(model.choose_action(next_state, setting['bonus']))
 
-            with open(path.join(save_dir, 'result{}.pkl'.format(i)), 'wb') as f:
-                pickle.dump([reward_track, time_step], f)
+            for _ in range(setting['n_eval']):
+                expert.average_reward_algorithm(trajectory, env,\
+                        setting['discount'], setting['bonus'], policy, device)
+
 
             for e, m in zip(expert.action_model, model.action_model):
                 m.w += e.w
 
         env.reset()
-        return target_track, time_step
+        with open(path.join(setting['save_dir'], 'result{}.pkl'.format(train_index)), 'wb') as f:
+            pickle.dump([target_track, time_step], f)

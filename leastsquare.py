@@ -21,6 +21,7 @@ if __name__ == "__main__":
     parser.add_argument("--epsilon", type=float, default=0.1)
     parser.add_argument("--n-eval", type=int, default=5)
     parser.add_argument("--sample-len", type=int, default=1000)
+    parser.add_argument("--update-feature", action='store_true')
     parser.add_argument("--T", type=int, default=5)
     parser.add_argument("--tau", type=int, default=1000)
     parser.add_argument("--lambda", type=float, default=1)
@@ -40,13 +41,7 @@ if __name__ == "__main__":
     setting['tmp_dir'] = '/tmp/oppoliter'
 
 
-    assert setting['algo'] in ['val', 'pol', 'ep-gr', 'politex']
-
-    key = ['algo',  'env', 'fourier_order', 'beta', 'lambda', 'step',
-            'discount', 'sample_len', 'n_eval', 'bonus'
-            ]
-    setting_str = '-'.join(['{}-{}'.format(e, setting[e]) for e in key])
-
+    assert setting['algo'] in ['val', 'pol', 'e-greedy', 'politex']
 
     torch.set_default_tensor_type(torch.DoubleTensor)
 

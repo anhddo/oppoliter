@@ -40,7 +40,7 @@ class LeastSquareQLearning:
                     state = ftr_transform.transform(state)
                     episode_count += 1
                 action = 0
-                if self.algo == EPSILON_GREEDY:
+                if setting['algo'] == 'e-greedy':
                     if npr.uniform() < self.epsilon:
                         action = npr.randint(self.n_action)
                     else:
@@ -48,7 +48,7 @@ class LeastSquareQLearning:
                 else:
                     action = model.choose_action(state, setting['bonus']).cpu().numpy()[0]
                 model.action_model[action].update_cov(state)
-                next_state, true_reward, modified_reward, terminal, info = env.step(action)
+                next_state, true_reward, modified_reward, terminal, _ = env.step(action)
                 sum_modified_reward += modified_reward
                 next_state = ftr_transform.transform(next_state)
                 trajectory[action].append(state, modified_reward, next_state, terminal)
@@ -73,8 +73,6 @@ class LeastSquareQLearning:
                         setting['discount'], setting['bonus'], policy, device)
         env.reset()
         pbar.close()
+        ftr_transform.save()
         with open(path.join(setting['save_dir'], 'result{}.pkl'.format(train_index)), 'wb') as f:
             pickle.dump([target_track, time_step], f)
-
-
-

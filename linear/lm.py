@@ -37,8 +37,8 @@ class LeastSquare:
 
 class Model:
     def __init__(self, setting, device):
-        self.action_count = [0, 0]
-        self.action_model = [LeastSquare(setting['feature_size'], setting['beta'], device) for _ in range(setting['n_action'])]
+        self.action_model = [LeastSquare(setting['feature_size'], setting['beta'], device)\
+                for _ in range(setting['n_action'])]
         self.D = setting['feature_size']
 
     def Q(self, state, use_bonus):

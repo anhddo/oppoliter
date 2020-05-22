@@ -3,23 +3,25 @@ from .fourier_transform import FourierTransform
 from .lm import Model
 from .env import EnvWrapper
 import torch
+import pickle
 
 def initialize(setting):
     env = EnvWrapper(setting['env'])
     device = get_device(setting)
-    ftr_transform = FourierTransform(setting['fourier_order'], env.observation_space, env)
     horizon_len = setting['step']
     if setting['algo'] == 'politex':
         horizon_len = setting['T'] * setting['tau']
     setting['horizon_len'] = horizon_len
     setting['n_action'] = env.action_space
-    setting['ftr_size'] = ftr_transform.dimension
+    setting['n_observation'] = env.observation_space
+    ftr_transform = FourierTransform(setting)
+    setting['feature_size'] = ftr_transform.dimension
 
     trajectory = [
         Trajectory(ftr_transform.dimension, device, horizon_len)
             for _ in range(env.action_space)
     ]
-    model = Model(device, setting)
+    model = Model(setting, device)
     return {
             'env': env,
             'ftr_transform': ftr_transform,
