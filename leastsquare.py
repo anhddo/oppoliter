@@ -33,6 +33,7 @@ if __name__ == "__main__":
     parser.add_argument("--repeat", type=int, default=1)
     parser.add_argument("--discount", type=float, default=0.999)
     parser.add_argument("--start-index", type=int, default=0)
+    parser.add_argument("--save-dir")
     args = parser.parse_args()
     setting = vars(args)
     setting['bonus'] = True if setting['bonus'] == 1 else False
@@ -48,7 +49,7 @@ if __name__ == "__main__":
             'discount', 'sample_len', 'n_eval', 'bonus'
             ]
     setting_str = '-'.join(['{}-{}'.format(e, setting[e]) for e in key])
-    setting['save_dir'] = 'tmp/' + setting_str
+    #setting['save_dir'] = 'tmp/' + setting_str
 
     env = EnvWrapper(setting['env'])
 
@@ -92,13 +93,8 @@ if __name__ == "__main__":
             algo = LeastSquareQLearning(env, model, ftr_transform, \
                     trajectory_per_action, setting, device)
 
-        start = timeit.default_timer()
         reward_track, time_step = algo.train(i)
         model.save(setting['model_path'])
-        with open(path.join(parent_dir, 'result{}.pkl'.format(i)), 'wb') as f:
-            pickle.dump([reward_track, time_step], f)
-        stop = timeit.default_timer()
 
-        #run_time.append('round:{}, {} s.'.format(i, stop - start))
         with open(path.join(parent_dir, 'ftr_transform'), 'wb') as f:
             pickle.dump(ftr_transform, f)

@@ -55,15 +55,12 @@ class Politex:
 
         expert = Model(self.model.action_model[0].w.shape[0],
                 self.env.action_space, self.model.beta, self.device)
-        #pbar = tqdm(total=self.total_step, leave=True)
+        pbar = tqdm(total=self.total_step, leave=True)
         for i in range(self.T):
             for _ in range(self.tau):
                 t += 1
-                #pbar.update()
+                pbar.update()
                 if terminal:
-                    print('==target: {:04.2f}, modified reward: {:04.2f}, step:{:5d}, ep:{:3d}=='
-                            .format(self.env.tracking_value, sum_modified_reward, t, episode_count
-                        ))
                     time_step.append(t)
                     target_track.append(self.env.tracking_value)
                     sum_modified_reward = 0
@@ -97,20 +94,12 @@ class Politex:
                         self.bonus,
                         policy
                     )
-            #print(94,expert.action_model[0].w.T)
-            #print(95, expert.action_model[1].w.T)
-            print(self.model.action_count, q/i)
-            #import pdb; pdb.set_trace();
 
+            with open(path.join(parent_dir, 'result{}.pkl'.format(i)), 'wb') as f:
+                pickle.dump([reward_track, time_step], f)
 
             for e, m in zip(expert.action_model, self.model.action_model):
                 m.w += e.w
-            #print(96, self.trajectory_per_action[0].index)
-            #print(97, self.trajectory_per_action[1].index)
-            #print(97, self.trajectory_per_action[1].get_past_data())
-            #import pdb; pdb.set_trace();
-            #print(98,self.model.action_model[0].w.T)
-            #print(99,self.model.action_model[1].w.T)
 
         self.env.reset()
         return target_track, time_step

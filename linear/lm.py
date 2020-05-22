@@ -6,8 +6,6 @@ import torch
 class LeastSquareModel(object):
     def __init__(self, D, beta, device):
         self.w = torch.zeros(D, 1)
-        #self.w = torch.rand(D, 1, dtype=torch.double, device=device) * 2 - 2
-        #self.cov = 
         self.inv_cov = 1e6 * torch.eye(self.w.shape[0])
         self.beta = beta
         self.device = device
@@ -57,7 +55,6 @@ class Model:
         return m
 
     def update(self, trajectory_list, env, discount, device, bonus=False, policy=None):
-        #policy = policy if policy else [None] * len(self.action_model)
         assert len(policy) == env.action_space
         for ls_model, trajectory, policy_per_action in zip(self.action_model, trajectory_list, policy):
             state, reward, next_state, terminal = trajectory.get_past_data()
@@ -67,18 +64,13 @@ class Model:
             reward = reward.view(-1, 1)
             terminal = terminal.view(-1, 1)
             Q_next = self.predict(next_state, bonus)
-            #print(68,Q_next.T)
             if policy_per_action != None:
                 V_next = Q_next.gather(1, policy_per_action.view(-1, 1))
             else:
                 V_next = Q_next.max(dim=1)[0].view(-1, 1)
             Q = (reward + discount * V_next) * (1 - terminal)
-            #print(74, V_next.T)
-            #print(75, Q.T)
             Q = torch.clamp(Q, min=0, max=env.max_clamp)
             ls_model.w = ls_model.inv_cov.to(device).mm(state.T.mm(Q)).cpu()
-            #print(77, ls_model.w.T)
-            #import pdb; pdb.set_trace();
             assert Q.shape[1] == 1
             assert ls_model.inv_cov.shape == (self.D, self.D)
             assert ls_model.w.shape == (self.D, 1)
