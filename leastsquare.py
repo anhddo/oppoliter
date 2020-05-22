@@ -39,9 +39,6 @@ if __name__ == "__main__":
     setting['bonus'] = True if setting['bonus'] == 1 else False
     setting['tmp_dir'] = '/tmp/oppoliter'
 
-    device = torch.device('cpu')
-    device = torch.device('cuda' if torch.cuda.is_available() \
-            and not setting['cpu'] else 'cpu')
 
     assert setting['algo'] in ['val', 'pol', 'ep-gr', 'politex']
 
@@ -49,52 +46,21 @@ if __name__ == "__main__":
             'discount', 'sample_len', 'n_eval', 'bonus'
             ]
     setting_str = '-'.join(['{}-{}'.format(e, setting[e]) for e in key])
-    #setting['save_dir'] = 'tmp/' + setting_str
 
-    env = EnvWrapper(setting['env'])
 
     torch.set_default_tensor_type(torch.DoubleTensor)
-    ftr_transform = FourierTransform(setting['fourier_order'], env.observation_space, env)
 
     parent_dir = setting['save_dir']
     os.makedirs(parent_dir, exist_ok=True)
     os.makedirs(setting['tmp_dir'], exist_ok=True)
     setting['model_path'] = path.join(parent_dir, 'model.pkl')
-    print('---------------------')
-    print('Pytorch version')
-    print('Environment:', env.env_name)
-    print('Algorithm:', 'Value iteration' if setting['algo'] == 'val' else 'Policy iteration')
-    print('observation_space:', env.observation_space,
-            'action_space:', env.action_space,
-            'feature dimension:', ftr_transform.dimension)
-    print('---------------------')
 
     with open(path.join(parent_dir, 'setting.txt'), 'w') as f:
         f.write(str(setting))
-    run_time = []
-    trajectory_size = setting['step']
-    if setting['algo'] == 'politex':
-        trajectory_size = setting['tau'] * setting['T']
-    trajectory_per_action = [
-        Trajectory(ftr_transform.dimension, device, trajectory_size)
-            for _ in range(env.action_space)
-    ]
-
 
     for i in trange(setting['start_index'], setting['start_index'] + setting['repeat']):
-        model = Model(ftr_transform.dimension, env.action_space, setting['beta'], device)
-        for trajectory in trajectory_per_action:
-            trajectory.reset()
-
         if setting['algo'] == 'politex':
-            algo = Politex(env, model, ftr_transform, \
-                    trajectory_per_action, setting, device)
+            Politex().train(i, setting)
         else:
-            algo = LeastSquareQLearning(env, model, ftr_transform, \
-                    trajectory_per_action, setting, device)
+            LeastSquareQLearning().train(i, setting)
 
-        reward_track, time_step = algo.train(i)
-        model.save(setting['model_path'])
-
-        with open(path.join(parent_dir, 'ftr_transform'), 'wb') as f:
-            pickle.dump(ftr_transform, f)

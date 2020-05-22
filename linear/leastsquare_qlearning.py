@@ -2,102 +2,79 @@ import numpy as np
 import numpy.random as npr
 import torch
 from tqdm import tqdm
+from .trajectory import Trajectory
+from .fourier_transform import FourierTransform
+from .utils import initialize
+from os import path
+import pickle
 
-VAL = 0
-POL = 1
-EPSILON_GREEDY = 2
 
 
 class LeastSquareQLearning:
-    def __init__(self, env, model, ftr_transform,
-            trajectory_per_action, setting, device):
+    def __init__(self):
         self.name = "Least square value iteration"
-        self.regulization_matrix = setting['lambda'] * torch.eye(ftr_transform.dimension)
-        self.env = env
-        self.ftr_transform = ftr_transform
-        self.trajectory_per_action = trajectory_per_action
-        self.n_action = len(trajectory_per_action)
-        self.model = model
-        self.total_step = setting['step']
-        self.discount = setting['discount']
-        self.render = setting['render']
-        self.n_eval = setting['n_eval']
-        self.sample_len = setting['sample_len']
-        self.bonus = setting['bonus']
-        self.epsilon = setting['epsilon']
-        self.device = device
-        if setting['algo'] == 'val':
-            self.algo = VAL
-        if setting['algo'] == 'pol':
-            self.algo = POL
-        if setting['algo'] == 'ep-gr':
-            self.algo = EPSILON_GREEDY
 
-
-
-    def train(self, train_index):
+    def train(self, train_index, setting) :
+        init = initialize(setting)
+        env, trajectory, model, ftr_transform, device =\
+                init['env'], init['trajectory'], init['model'],\
+                init['ftr_transform'], init['device']
         sum_modified_reward = 0
-        tracking = [0] * 10
         terminal = True
-        target_track, time_step = [], []
 
         state = None
         episode_count = 0
-        self.env.reset()
+        env.reset()
         t = -1
-        pbar = tqdm(total=self.total_step, leave=True)
-        while t < self.total_step:
-            for _ in range(self.sample_len):
+        pbar = tqdm(total=setting['horizon_len'], leave=True)
+        target_track, time_step = [], []
+        while t < setting['horizon_len']:
+            for _ in range(setting['sample_len']):
                 t += 1
                 pbar.update()
                 if terminal:
                     time_step.append(t)
-                    target_track.append(self.env.tracking_value)
+                    target_track.append(env.tracking_value)
                     sum_modified_reward = 0
-                    state = self.env.reset()
-                    state = self.ftr_transform.transform(state)
+                    state = env.reset()
+                    state = ftr_transform.transform(state)
                     episode_count += 1
-
                 action = 0
                 if self.algo == EPSILON_GREEDY:
                     if npr.uniform() < self.epsilon:
                         action = npr.randint(self.n_action)
                     else:
-                        action = self.model.choose_action(state, self.bonus).cpu().numpy()[0]
+                        action = model.choose_action(state, setting['bonus']).cpu().numpy()[0]
                 else:
-                    action = self.model.choose_action(state, self.bonus).cpu().numpy()[0]
-                self.model.action_model[action].update_cov(state)
-                next_state, true_reward, modified_reward, terminal, info = self.env.step(action)
+                    action = model.choose_action(state, setting['bonus']).cpu().numpy()[0]
+                model.action_model[action].update_cov(state)
+                next_state, true_reward, modified_reward, terminal, info = env.step(action)
                 sum_modified_reward += modified_reward
-                next_state = self.ftr_transform.transform(next_state)
-                self.trajectory_per_action[action].append(state, modified_reward, next_state, terminal)
+                next_state = ftr_transform.transform(next_state)
+                trajectory[action].append(state, modified_reward, next_state, terminal)
                 state = next_state
-                if t == self.total_step:
+                if t == setting['horizon_len']:
                     break
-            policy = self.next_state_policy() if self.algo == POL else [None] * self.env.action_space
 
-            for _ in range(self.n_eval):
-                self.model.update(self.trajectory_per_action, self.env, self.discount, self.device, self.bonus, policy)
-            #print(self.model.action_model[0].w.T)
-            #print(self.model.action_model[1].w.T)
-            #import pdb; pdb.set_trace();
-        self.env.reset()
+
+            policy = []
+            if setting['algo'] == 'pol':
+                for trajectory_per_action in trajectory:
+                    _, _, next_state, _ = trajectory_per_action.get_past_data()
+                    if next_state.shape[0] == 0:
+                        policy.append(None)
+                    else:
+                        policy.append(model.choose_action(next_state, setting['bonus']))
+            else:
+                policy = [None] * env.action_space
+
+            for _ in range(setting['n_eval']):
+                model.average_reward_algorithm(trajectory, env,\
+                        setting['discount'], setting['bonus'], policy, device)
+        env.reset()
         pbar.close()
-        return target_track, time_step
+        with open(path.join(setting['save_dir'], 'result{}.pkl'.format(train_index)), 'wb') as f:
+            pickle.dump([target_track, time_step], f)
 
 
-
-    def next_state_policy(self):
-        policy = []
-        for ls_model, trajectory in zip(self.model.action_model, self.trajectory_per_action):
-            state, reward, next_state, terminal = trajectory.get_past_data()
-            if state.shape[0] == 0:
-                policy.append(None)
-                continue
-            reward = reward.view(-1, 1)
-            terminal = terminal.view(-1, 1)
-            Q_next = self.model.predict(next_state, self.bonus)
-            _, index = torch.max(Q_next, dim=1)
-            policy.append(index)
-        return policy
 
