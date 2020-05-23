@@ -50,17 +50,18 @@ class Politex:
                 d = softmax(setting['lr'] * q)
                 action = np.random.choice(env.action_space, 1, p=d)[0]
 
-                model.action_model[action].update_cov(state)
                 next_state, true_reward, modified_reward, terminal, info = env.step(action)
                 sum_modified_reward += modified_reward
                 next_state = ftr_transform.transform(next_state)
                 trajectory[action].append(state, modified_reward, next_state, terminal)
+                model.action_model[action].update_cov(state)
                 state = next_state
 
             for e, m in zip(expert.action_model, model.action_model):
                 e.reset_w()
                 if setting['on_policy']:
                     e.reset_cov()
+                e.inv_cov = m.inv_cov
 
             policy = []
             for trajectory_per_action in trajectory:
@@ -74,10 +75,11 @@ class Politex:
                 expert.average_reward_algorithm(trajectory=trajectory, env=env,\
                         discount=setting['discount'], bonus=setting['bonus'], policy=policy)
 
-
             for e, m in zip(expert.action_model, model.action_model):
                 m.w += e.w
 
+        pbar.close()
         env.reset()
+        ftr_transform.save()
         with open(path.join(setting['save_dir'], 'result{}.pkl'.format(train_index)), 'wb') as f:
             pickle.dump([target_track, time_step], f)

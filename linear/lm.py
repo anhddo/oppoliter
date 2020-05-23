@@ -15,19 +15,20 @@ class LeastSquare:
     def reset_cov(self):
         self.inv_cov = 1e4 * torch.eye(self.inv_cov.shape[0])
 
-    def predict(self, x):
+    def predict(self, x, use_bonus=False):
         w = self.w.to(self.device) if x.is_cuda else self.w
         Q = x.mm(w)
+        if use_bonus:
+            inv_cov = self.inv_cov.to(self.device) if x.is_cuda else self.inv_cov
+            b = self.beta * torch.sqrt(x.mm(inv_cov).mm(x.T).diagonal()).reshape(Q.shape)
+            Q += b
         return Q
 
-    def bonus(self, x):
-        inv_cov = self.inv_cov.to(self.device) if x.is_cuda else self.inv_cov
-        return self.beta * torch.sqrt(x.mm(inv_cov).mm(x.T).diagonal())
 
-    def update_cov(self, state):
+    def update_cov(self, state_t):
         A = self.inv_cov
-        c = A.mm(state.T).mm(state.mm(A)) / (1. + state.mm(A).mm(state.T))
-        self.inv_cov -= c
+        d = 1. + state_t.mm(A).mm(state_t.T)
+        self.inv_cov -= A.mm(state_t.T).mm(state_t.mm(A)) / d
 
     def convert_to_cpu(self):
         self.w = self.w.cpu()
@@ -45,12 +46,8 @@ class Model:
         self.D = setting['feature_size']
 
     def Q(self, state, use_bonus):
-        q = [m.predict(state) for m in self.action_model]
+        q = [m.predict(state, use_bonus) for m in self.action_model]
         q = torch.stack(q, dim=1).squeeze(2)
-        if use_bonus:
-            b = [m.bonus(state) for m in self.action_model]
-            b = torch.stack(b, dim=1)
-            q += b
         return q
 
     def choose_action(self, state, use_bonus):

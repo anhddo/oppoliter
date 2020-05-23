@@ -47,15 +47,14 @@ class LeastSquareQLearning:
                         action = model.choose_action(state, setting['bonus']).cpu().numpy()[0]
                 else:
                     action = model.choose_action(state, setting['bonus']).cpu().numpy()[0]
-                model.action_model[action].update_cov(state)
                 next_state, true_reward, modified_reward, terminal, _ = env.step(action)
                 sum_modified_reward += modified_reward
                 next_state = ftr_transform.transform(next_state)
                 trajectory[action].append(state, modified_reward, next_state, terminal)
+                model.action_model[action].update_cov(state)
                 state = next_state
                 if t == setting['horizon_len']:
                     break
-
 
             policy = []
             if setting['algo'] == 'pol':
