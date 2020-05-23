@@ -77,6 +77,8 @@ class Politex:
 
             for e, m in zip(expert.action_model, model.action_model):
                 m.w += e.w
+                if setting['bonus']:
+
 
         pbar.close()
         env.reset()

@@ -40,7 +40,7 @@ class LeastSquareQLearning:
                     state = ftr_transform.transform(state)
                     episode_count += 1
                 action = 0
-                if setting['algo'] == 'e-greedy':
+                if setting['algo'] == 'egreedy':
                     if npr.uniform() < setting['epsilon']:
                         action = npr.randint(setting['n_action'])
                     else:

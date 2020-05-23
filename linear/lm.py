@@ -15,7 +15,7 @@ class LeastSquare:
     def reset_cov(self):
         self.inv_cov = 1e4 * torch.eye(self.inv_cov.shape[0])
 
-    def predict(self, x, use_bonus=False):
+    def predict(self, x, use_bonus):
         w = self.w.to(self.device) if x.is_cuda else self.w
         Q = x.mm(w)
         if use_bonus:

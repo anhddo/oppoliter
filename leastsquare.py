@@ -39,16 +39,14 @@ if __name__ == "__main__":
     args = parser.parse_args()
     setting = vars(args)
     setting['bonus'] = True if setting['bonus'] == 1 else False
-    setting['tmp_dir'] = '/tmp/oppoliter'
 
 
-    assert setting['algo'] in ['val', 'pol', 'e-greedy', 'politex']
+    assert setting['algo'] in ['val', 'pol', 'egreedy', 'politex']
 
     torch.set_default_tensor_type(torch.DoubleTensor)
 
     parent_dir = setting['save_dir']
     os.makedirs(parent_dir, exist_ok=True)
-    os.makedirs(setting['tmp_dir'], exist_ok=True)
     setting['model_path'] = path.join(parent_dir, 'model.pkl')
 
     with open(path.join(parent_dir, 'setting.txt'), 'w') as f:
