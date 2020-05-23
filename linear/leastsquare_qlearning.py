@@ -41,8 +41,8 @@ class LeastSquareQLearning:
                     episode_count += 1
                 action = 0
                 if setting['algo'] == 'e-greedy':
-                    if npr.uniform() < self.epsilon:
-                        action = npr.randint(self.n_action)
+                    if npr.uniform() < setting['epsilon']:
+                        action = npr.randint(setting['n_action'])
                     else:
                         action = model.choose_action(state, setting['bonus']).cpu().numpy()[0]
                 else:
@@ -69,8 +69,8 @@ class LeastSquareQLearning:
                 policy = [None] * env.action_space
 
             for _ in range(setting['n_eval']):
-                model.average_reward_algorithm(trajectory, env,\
-                        setting['discount'], setting['bonus'], policy, device)
+                model.average_reward_algorithm(trajectory=trajectory, env=env,\
+                        discount=setting['discount'], bonus=setting['bonus'], policy=policy)
         env.reset()
         pbar.close()
         ftr_transform.save()

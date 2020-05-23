@@ -32,6 +32,9 @@ class Politex:
 
         pbar = tqdm(total=setting['horizon_len'], leave=True)
         for i in range(setting['T']):
+            if setting['on_policy']:
+                for e in trajectory:
+                    e.reset()
             for _ in range(setting['tau']):
                 t += 1
                 pbar.update()
@@ -46,7 +49,6 @@ class Politex:
                 q = model.Q(state, setting['bonus']).squeeze(0).cpu().numpy()
                 d = softmax(setting['lr'] * q)
                 action = np.random.choice(env.action_space, 1, p=d)[0]
-                #model.action_count[action]+=1
 
                 model.action_model[action].update_cov(state)
                 next_state, true_reward, modified_reward, terminal, info = env.step(action)
@@ -56,8 +58,9 @@ class Politex:
                 state = next_state
 
             for e, m in zip(expert.action_model, model.action_model):
-                e.reset_zeros()
-                e.inv_cov = m.inv_cov
+                e.reset_w()
+                if setting['on_policy']:
+                    e.reset_cov()
 
             policy = []
             for trajectory_per_action in trajectory:
@@ -68,8 +71,8 @@ class Politex:
                     policy.append(model.choose_action(next_state, setting['bonus']))
 
             for _ in range(setting['n_eval']):
-                expert.average_reward_algorithm(trajectory, env,\
-                        setting['discount'], setting['bonus'], policy, device)
+                expert.average_reward_algorithm(trajectory=trajectory, env=env,\
+                        discount=setting['discount'], bonus=setting['bonus'], policy=policy)
 
 
             for e, m in zip(expert.action_model, model.action_model):

@@ -25,7 +25,6 @@ class Trajectory:
                 self.next_state[:index, :],
                 self.terminal[:index])
 
-
     def reset(self):
         self.index = -1
 
