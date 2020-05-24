@@ -28,6 +28,8 @@ class LeastSquareQLearning:
         t = -1
         pbar = tqdm(total=setting['horizon_len'], leave=True)
         target_track, time_step = [], []
+        epsilon = 1
+        print('discount:', setting['discount'], 'beta:', setting['beta'])
         while t < setting['horizon_len']:
             for _ in range(setting['sample_len']):
                 t += 1
@@ -41,7 +43,8 @@ class LeastSquareQLearning:
                     episode_count += 1
                 action = 0
                 if setting['algo'] == 'egreedy':
-                    if npr.uniform() < setting['epsilon']:
+                    epsilon = max(setting['min_epsilon'], epsilon * setting['ep_decay'])
+                    if npr.uniform() < epsilon:
                         action = npr.randint(setting['n_action'])
                     else:
                         action = model.choose_action(state, setting['bonus']).cpu().numpy()[0]
@@ -68,7 +71,7 @@ class LeastSquareQLearning:
                 policy = [None] * env.action_space
 
             for _ in range(setting['n_eval']):
-                model.average_reward_algorithm(trajectory=trajectory, env=env,\
+                model.undiscount_average_reward_algorithm(trajectory=trajectory, env=env,\
                         discount=setting['discount'], bonus=setting['bonus'], policy=policy)
         env.reset()
         pbar.close()

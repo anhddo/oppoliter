@@ -12,6 +12,8 @@ def initialize(setting):
     if setting['algo'] == 'politex':
         horizon_len = setting['T'] * setting['tau']
     setting['horizon_len'] = horizon_len
+    #setting['discount'] = 1 - horizon_len**(-1. / 4)
+    #setting['beta'] = 1. / (1 - setting['discount'])
     setting['n_action'] = env.action_space
     setting['n_observation'] = env.observation_space
     ftr_transform = FourierTransform(setting)

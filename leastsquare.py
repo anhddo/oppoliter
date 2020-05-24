@@ -10,7 +10,6 @@ from linear.politex import Politex
 from linear.env import EnvWrapper
 import pickle
 import timeit
-from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm, trange
 
 if __name__ == "__main__":
@@ -18,14 +17,15 @@ if __name__ == "__main__":
     parser.add_argument("--fourier-order", type=int, default=4)
     parser.add_argument("--algo", default='val')
     parser.add_argument("--beta", type=float, default=1)
-    parser.add_argument("--epsilon", type=float, default=0.1)
+    parser.add_argument("--min-epsilon", type=float, default=0.01)
+    parser.add_argument("--ep_decay", type=float, default=0.999)
     parser.add_argument("--n-eval", type=int, default=5)
     parser.add_argument("--sample-len", type=int, default=1000)
     parser.add_argument("--update-feature", action='store_true')
     parser.add_argument("--on-policy", action='store_true')
     parser.add_argument("--T", type=int, default=5)
     parser.add_argument("--tau", type=int, default=1000)
-    parser.add_argument("--lambda", type=float, default=1)
+    #parser.add_argument("--lambda", type=float, default=1)
     parser.add_argument("--lr", type=float, default=1)
     parser.add_argument("--env", default='CartPole-v0')
     parser.add_argument("--render", action="store_true")
@@ -49,6 +49,7 @@ if __name__ == "__main__":
     os.makedirs(parent_dir, exist_ok=True)
     setting['model_path'] = path.join(parent_dir, 'model.pkl')
 
+    print(setting)
     with open(path.join(parent_dir, 'setting.txt'), 'w') as f:
         f.write(str(setting))
 
