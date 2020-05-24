@@ -42,7 +42,7 @@ class LeastSquare:
         self.w = self.fit_(X, y)
 
     def smooth_fit(self, X, y):
-        self.w = self.w * 0.9 + 0.1 * self.fit_(X, y)
+        self.w = self.w * 0.8 + 0.2 * self.fit_(X, y)
 
 
 class Model:
@@ -61,7 +61,7 @@ class Model:
         _, index = torch.max(Q_next, dim=1)
         return index
 
-    def average_reward_algorithm(self, **kargs):
+    def average_reward_algorithm_bk(self, **kargs):
         assert len(kargs['policy']) == kargs['env'].action_space
         for ls_model, action_trajectory, action_policy in zip(self.action_model, kargs['trajectory'], kargs['policy']):
             state, reward, next_state, terminal = action_trajectory.get_past_data()
@@ -83,6 +83,36 @@ class Model:
             assert ls_model.inv_cov.shape == (self.D, self.D)
             assert ls_model.w.shape == (self.D, 1)
 
+    def average_reward_algorithm(self, **kargs):
+        assert len(kargs['policy']) == kargs['env'].action_space
+        for ls_model, action_trajectory, action_policy in zip(self.action_model, kargs['trajectory'], kargs['policy']):
+            state, reward, next_state, terminal = action_trajectory.get_past_data()
+            if state.shape[0] == 0:
+                continue
+            reward = reward.view(-1, 1)
+            terminal = terminal.view(-1, 1)
+            Q_next = self.Q(next_state, kargs['bonus'])
+            if action_policy != None:
+                V_next = Q_next.gather(1, action_policy.view(-1, 1))
+                #import pdb; pdb.set_trace();
+            else:
+                V_next = Q_next.max(dim=1)[0].view(-1, 1)
+            V_next = torch.clamp(V_next, min=kargs['env'].min_clamp, max=kargs['env'].max_clamp)
+
+            if action_policy != None:
+                Q = reward + (V_next ) * (1 -  terminal) - torch.mean(reward)
+                #Q = reward + kargs['discount'] * V_next * (1 - terminal)
+                #ls_model.smooth_fit(state, Q)
+                ls_model.fit(state, Q)
+                #print(Q.T)
+            else:
+                Q = reward + kargs['discount'] * V_next * (1 - terminal)
+                ls_model.fit(state, Q)
+
+            assert Q.shape[1] == 1
+            assert ls_model.inv_cov.shape == (self.D, self.D)
+            assert ls_model.w.shape == (self.D, 1)
+
     def undiscount_average_reward_algorithm(self, **kargs):
         assert len(kargs['policy']) == kargs['env'].action_space
         for ls_model, action_trajectory, action_policy in zip(self.action_model, kargs['trajectory'], kargs['policy']):
@@ -97,10 +127,13 @@ class Model:
             else:
                 V_next = Q_next.max(dim=1)[0].view(-1, 1)
             V_next = torch.clamp(V_next, min=kargs['env'].min_clamp, max=kargs['env'].max_clamp)
-            Q = reward + V_next * (1 - terminal) - torch.mean(reward)
+            #Q = reward + V_next * (1 - terminal) - torch.mean(reward)
+            Q = reward + (V_next - torch.mean(reward)) * (1 -  terminal)
             ls_model.smooth_fit(state, Q)
+            #print(kargs['env'].min_clamp, kargs['env'].max_clamp)
             #print(reward.T)
             #print(Q.T)
+            #print(V_next.T)
             assert Q.shape[1] == 1
             assert ls_model.inv_cov.shape == (self.D, self.D)
             assert ls_model.w.shape == (self.D, 1)

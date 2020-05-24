@@ -28,6 +28,8 @@ class LeastSquareQLearning:
         t = -1
         pbar = tqdm(total=setting['horizon_len'], leave=True)
         target_track, time_step = [], []
+        setting['discount'] = 1 - setting['horizon_len']**(-1. / 4)
+        setting['beta'] = 1. / (1. - setting['discount'])
         epsilon = 1
         print('discount:', setting['discount'], 'beta:', setting['beta'])
         while t < setting['horizon_len']:
@@ -71,7 +73,7 @@ class LeastSquareQLearning:
                 policy = [None] * env.action_space
 
             for _ in range(setting['n_eval']):
-                model.undiscount_average_reward_algorithm(trajectory=trajectory, env=env,\
+                model.average_reward_algorithm(trajectory=trajectory, env=env,\
                         discount=setting['discount'], bonus=setting['bonus'], policy=policy)
         env.reset()
         pbar.close()

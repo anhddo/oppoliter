@@ -70,7 +70,7 @@ class Politex:
 
             for e in expert.action_model:
                 pass
-                e.reset_w()
+                #e.reset_w()
 
             policy = []
             for trajectory_per_action in trajectory:
@@ -81,7 +81,7 @@ class Politex:
                     policy.append(model.choose_action(next_state, setting['bonus']))
 
             for _ in range(setting['n_eval']):
-                expert.undiscount_average_reward_algorithm(trajectory=trajectory, env=env,\
+                expert.average_reward_algorithm(trajectory=trajectory, env=env,\
                         discount=setting['discount'], bonus=setting['bonus'], policy=policy)
 
             for e, m in zip(expert.action_model, model.action_model):
