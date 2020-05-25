@@ -42,7 +42,7 @@ class LeastSquare:
         self.w = self.fit_(X, y)
 
     def smooth_fit(self, X, y):
-        self.w = self.w * 0.8 + 0.2 * self.fit_(X, y)
+        self.w = self.w * 0.9 + 0.1 * self.fit_(X, y)
 
 
 class Model:
@@ -77,11 +77,22 @@ class Model:
             V_next = torch.clamp(V_next, min=kargs['env'].min_clamp, max=kargs['env'].max_clamp)
             Q = reward + kargs['discount'] * V_next * (1 - terminal)
             ls_model.fit(state, Q)
-            print(reward.T)
-            print(Q.T)
             assert Q.shape[1] == 1
             assert ls_model.inv_cov.shape == (self.D, self.D)
             assert ls_model.w.shape == (self.D, 1)
+
+    def update1(self, ls_model, kargs, reward, state, terminal, V_next):
+        m = torch.mean(reward)
+        Q = reward + (V_next ) * (1 - terminal) - m
+        #Q = torch.clamp(Q, min=kargs['env'].min_clamp, max=kargs['env'].max_clamp)
+        ls_model.smooth_fit(state, Q)
+        assert Q.shape[1] == 1
+
+    def update2(self, ls_model, kargs, reward, state, terminal, V_next):
+        Q = reward + kargs['discount'] * V_next * (1 - terminal)
+        #Q = torch.clamp(Q, min=kargs['env'].min_clamp, max=kargs['env'].max_clamp)
+        ls_model.fit(state, Q)
+        assert Q.shape[1] == 1
 
     def average_reward_algorithm(self, **kargs):
         assert len(kargs['policy']) == kargs['env'].action_space
@@ -94,22 +105,16 @@ class Model:
             Q_next = self.Q(next_state, kargs['bonus'])
             if action_policy != None:
                 V_next = Q_next.gather(1, action_policy.view(-1, 1))
-                #import pdb; pdb.set_trace();
             else:
                 V_next = Q_next.max(dim=1)[0].view(-1, 1)
             V_next = torch.clamp(V_next, min=kargs['env'].min_clamp, max=kargs['env'].max_clamp)
 
             if action_policy != None:
-                Q = reward + (V_next ) * (1 -  terminal) - torch.mean(reward)
-                #Q = reward + kargs['discount'] * V_next * (1 - terminal)
-                #ls_model.smooth_fit(state, Q)
-                ls_model.fit(state, Q)
-                #print(Q.T)
+                self.update1(ls_model, kargs, reward, state, terminal,  V_next)
             else:
-                Q = reward + kargs['discount'] * V_next * (1 - terminal)
-                ls_model.fit(state, Q)
+                self.update2(ls_model, kargs, reward, state, terminal, V_next)
 
-            assert Q.shape[1] == 1
+
             assert ls_model.inv_cov.shape == (self.D, self.D)
             assert ls_model.w.shape == (self.D, 1)
 
@@ -130,10 +135,6 @@ class Model:
             #Q = reward + V_next * (1 - terminal) - torch.mean(reward)
             Q = reward + (V_next - torch.mean(reward)) * (1 -  terminal)
             ls_model.smooth_fit(state, Q)
-            #print(kargs['env'].min_clamp, kargs['env'].max_clamp)
-            #print(reward.T)
-            #print(Q.T)
-            #print(V_next.T)
             assert Q.shape[1] == 1
             assert ls_model.inv_cov.shape == (self.D, self.D)
             assert ls_model.w.shape == (self.D, 1)

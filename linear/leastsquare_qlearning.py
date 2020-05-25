@@ -7,7 +7,8 @@ from .fourier_transform import FourierTransform
 from .utils import initialize
 from os import path
 import pickle
-
+from torch.utils.tensorboard import SummaryWriter
+from datetime import datetime
 
 
 class LeastSquareQLearning:
@@ -28,9 +29,10 @@ class LeastSquareQLearning:
         t = -1
         pbar = tqdm(total=setting['horizon_len'], leave=True)
         target_track, time_step = [], []
-        setting['discount'] = 1 - setting['horizon_len']**(-1. / 4)
-        setting['beta'] = 1. / (1. - setting['discount'])
+        #setting['discount'] = 1 - setting['horizon_len']**(-1. / 4)
+        #setting['beta'] = 1. / (1. - setting['discount'])
         epsilon = 1
+        writer = SummaryWriter(log_dir='logs/{}-'.format(setting['algo']) + setting['env'] + str( datetime.now()))
         print('discount:', setting['discount'], 'beta:', setting['beta'])
         while t < setting['horizon_len']:
             for _ in range(setting['sample_len']):
@@ -39,6 +41,7 @@ class LeastSquareQLearning:
                 if terminal:
                     time_step.append(t)
                     target_track.append(env.tracking_value)
+                    writer.add_scalar('ls/reward', env.tracking_value, t)
                     sum_modified_reward = 0
                     state = env.reset()
                     state = ftr_transform.transform(state)

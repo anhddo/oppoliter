@@ -17,12 +17,12 @@ class EnvWrapper:
         self.tracking_value = 0
         self.reset_tracking_value = 0
         self._max_episode_steps = self.env._max_episode_steps
-        self.max_clamp = self.env._max_episode_steps
 
 
         self.min_clamp = 0
+        self.max_clamp = self.env._max_episode_steps
         if self.env_name == 'CartPole-v0' or self.env_name == 'CartPole-v1':
-            self.max_clamp = self.env._max_episode_steps
+            pass
 
         elif self.env_name == 'MountainCar-v0':
             self.max_clamp = 0
@@ -52,7 +52,7 @@ class EnvWrapper:
 
         if self.env_name == 'CartPole-v0' or self.env_name == 'CartPole-v1':
             if terminal:
-                modified_reward = self.t - self.env._max_episode_steps
+                modified_reward = 0
             self.tracking_value += true_reward
         elif self.env_name == 'CartPoleSwingUp-v0':
             self.tracking_value += true_reward

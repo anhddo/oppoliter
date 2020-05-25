@@ -9,6 +9,8 @@ from .utils import initialize
 from .lm import Model
 from os import path
 import pickle
+from torch.utils.tensorboard import SummaryWriter
+from datetime import datetime
 
 
 class Politex:
@@ -17,6 +19,7 @@ class Politex:
 
     def train(self, train_index, setting):
         init = initialize(setting)
+        writer = SummaryWriter(log_dir='logs/politex-' + setting['env'] + str( datetime.now()))
         env, trajectory, model, ftr_transform, device =\
                 init['env'], init['trajectory'], init['model'],\
                 init['ftr_transform'], init['device']
@@ -33,13 +36,12 @@ class Politex:
         pbar = tqdm(total=setting['horizon_len'], leave=True)
         exploration_bonus = [[]]*setting['n_action']
         for i in range(setting['T']):
-            if setting['on_policy']:
-                for e in trajectory:
-                    e.reset()
-                for e in expert.action_model:
-                    pass
-                    #e.reset_w()
-                    e.reset_cov()
+            #if setting['on_policy']:
+            #    for e in trajectory:
+            #        e.reset()
+            #    for e in expert.action_model:
+            #        pass
+            #        e.reset_cov()
             for _ in range(setting['tau']):
                 t += 1
                 pbar.update()
@@ -47,6 +49,7 @@ class Politex:
                     time_step.append(t)
                     target_track.append(env.tracking_value)
                     sum_modified_reward = 0
+                    writer.add_scalar('ls/reward', env.tracking_value, t)
                     state = env.reset()
                     state = ftr_transform.transform(state)
                     episode_count += 1
@@ -60,7 +63,7 @@ class Politex:
                     q += b
                 d = softmax(setting['lr'] * q)
                 action = np.random.choice(env.action_space, 1, p=d)[0]
-
+                writer.add_scalar('ls/prob', max(d), t)
                 next_state, true_reward, modified_reward, terminal, info = env.step(action)
                 sum_modified_reward += modified_reward
                 next_state = ftr_transform.transform(next_state)
@@ -73,6 +76,7 @@ class Politex:
                 #e.reset_w()
 
             policy = []
+            writer.add_scalar('ls/q', torch.max(expert.Q(state, setting['bonus'])), t)
             for trajectory_per_action in trajectory:
                 _, _, next_state, _ = trajectory_per_action.get_past_data()
                 if next_state.shape[0] == 0:
