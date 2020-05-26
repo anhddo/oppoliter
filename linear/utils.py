@@ -40,7 +40,7 @@ def print_info(setting):
     print('Pytorch version')
     print('Environment:', setting['env'])
     print('Algorithm:', 'Value iteration' if setting['algo'] == 'val' else 'Policy iteration')
-    print('observation_space:', env.observation_space,
-            'action_space:', env.action_space,
-            'feature dimension:', ftr_transform.dimension)
+    print('observation_space:', setting['n_observation'],
+            'action_space:', setting['n_action'],
+            'feature dimension:', setting['feature_size'])
     print('---------------------')

@@ -4,11 +4,13 @@ import torch
 from tqdm import tqdm
 from .trajectory import Trajectory
 from .fourier_transform import FourierTransform
-from .utils import initialize
+from .utils import initialize, print_info
 from os import path
 import pickle
 from torch.utils.tensorboard import SummaryWriter
 from datetime import datetime
+from math import cos
+import time
 
 
 class LeastSquareQLearning:
@@ -20,12 +22,12 @@ class LeastSquareQLearning:
         env, trajectory, model, ftr_transform, device =\
                 init['env'], init['trajectory'], init['model'],\
                 init['ftr_transform'], init['device']
+        #print_info(setting)
         sum_modified_reward = 0
-        terminal = True
+        terminal = False
 
         state = None
         episode_count = 0
-        env.reset()
         t = -1
         pbar = tqdm(total=setting['horizon_len'], leave=True)
         target_track, time_step = [], []
@@ -33,22 +35,25 @@ class LeastSquareQLearning:
         #setting['beta'] = 1. / (1. - setting['discount'])
         epsilon = 1
         writer = SummaryWriter(log_dir='logs/{}-'.format(setting['algo']) + setting['env'] + str( datetime.now()))
-        print('discount:', setting['discount'], 'beta:', setting['beta'])
+        sum_modified_reward = 0
+        state_ = env.reset()
+        state = ftr_transform.transform(state_)
         while t < setting['horizon_len']:
             for _ in range(setting['sample_len']):
-                t += 1
-                pbar.update()
                 if terminal:
+                    writer.add_scalar('ls/q', torch.max(model.Q(state, setting['bonus'])), t)
                     time_step.append(t)
                     target_track.append(env.tracking_value)
                     writer.add_scalar('ls/reward', env.tracking_value, t)
-                    sum_modified_reward = 0
-                    state = env.reset()
-                    state = ftr_transform.transform(state)
-                    episode_count += 1
+                    writer.add_scalar('ls/t', env.t, t)
+                    state_ = env.reset()
+                    state = ftr_transform.transform(state_)
+                t += 1
+                pbar.update()
                 action = 0
                 if setting['algo'] == 'egreedy':
                     epsilon = max(setting['min_epsilon'], epsilon * setting['ep_decay'])
+                    writer.add_scalar('egreedy/epsilon', epsilon, t)
                     if npr.uniform() < epsilon:
                         action = npr.randint(setting['n_action'])
                     else:
@@ -56,6 +61,8 @@ class LeastSquareQLearning:
                 else:
                     action = model.choose_action(state, setting['bonus']).cpu().numpy()[0]
                 next_state, true_reward, modified_reward, terminal, _ = env.step(action)
+                writer.add_scalar('ls/reward_raw', modified_reward, t)
+                state_=next_state
                 sum_modified_reward += modified_reward
                 next_state = ftr_transform.transform(next_state)
                 trajectory[action].append(state, modified_reward, next_state, terminal)

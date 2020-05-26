@@ -5,33 +5,35 @@ import gym_cartpole_swingup
 
 class EnvWrapper:
     def __init__(self, env_name):
-        self.env = gym.make(env_name)
+        self._env = gym.make(env_name)
         self.env_name = env_name
-        self.observation_space = self.env.observation_space.shape[0]
+        self.observation_space = self._env.observation_space.shape[0]
+        self.action_space = self._env.action_space.n
         if env_name == 'BipedalWalker-v3':
-            self.action_space = self.env.action_space.shape[0]
+            self.action_space = self._env.action_space.shape[0]
         elif env_name == 'CartPoleSwingUp-v0':
             self.action_space = 2
-        else:
-            self.action_space = self.env.action_space.n
+        elif env_name == 'Acrobot-v1':
+            self.observation_space = 4
         self.tracking_value = 0
         self.reset_tracking_value = 0
-        self._max_episode_steps = self.env._max_episode_steps
+        self._max_episode_steps = self._env._max_episode_steps
 
 
         self.min_clamp = 0
-        self.max_clamp = self.env._max_episode_steps
+        self.max_clamp = self._env._max_episode_steps
         if self.env_name == 'CartPole-v0' or self.env_name == 'CartPole-v1':
             pass
 
         elif self.env_name == 'MountainCar-v0':
             self.max_clamp = 0
-            self.min_clamp = -self.env._max_episode_steps
-            self.reset_tracking_value = self.env._max_episode_steps
+            self.min_clamp = -self._env._max_episode_steps
+            self.reset_tracking_value = self._env._max_episode_steps
 
         elif self.env_name == 'Acrobot-v1':
-            self.max_clamp = 100
-            self.reset_tracking_value = 500
+            self.max_clamp = self._env._max_episode_steps
+            self.min_clamp = -self._env._max_episode_steps
+            self.reset_tracking_value = -self._env._max_episode_steps
 
         elif self.env_name == 'LunarLander-v2':
             self.min_clamp = -500
@@ -45,7 +47,7 @@ class EnvWrapper:
         if self.env_name == 'CartPoleSwingUp-v0':
             if action == 0:
                 action = -1
-        state, true_reward, terminal, info = self.env.step(action)
+        state, true_reward, terminal, info = self._env.step(action)
         self.t += 1
         true_reward = float(true_reward)
         modified_reward = true_reward
@@ -54,6 +56,11 @@ class EnvWrapper:
             if terminal:
                 modified_reward = 0
             self.tracking_value += true_reward
+        elif self.env_name == 'Acrobot-v1':
+            state = self._env.state
+            #modified_reward = np.exp(-cos(state[0]) - cos(state[1] + state[0])) / 2.7
+            modified_reward = (-cos(state[0]) - cos(state[1] + state[0]) + 0.5) / 1.5
+            self.tracking_value += modified_reward
         elif self.env_name == 'CartPoleSwingUp-v0':
             self.tracking_value += true_reward
 
@@ -62,16 +69,16 @@ class EnvWrapper:
             if terminal:
                 modified_reward = 0
 
-        elif self.env_name == 'Acrobot-v1':
-            self.tracking_value = self.t
         elif self.env_name == 'LunarLander-v2':
             self.tracking_value += true_reward
-
 
         return state, true_reward, modified_reward, terminal, info
 
     def reset(self):
         self.t = 0
         self.tracking_value = self.reset_tracking_value
-        return self.env.reset()
+        state = self._env.reset()
+        if self.env_name == 'Acrobot-v1':
+            return self._env.state
+        return state
 

@@ -61,26 +61,6 @@ class Model:
         _, index = torch.max(Q_next, dim=1)
         return index
 
-    def average_reward_algorithm_bk(self, **kargs):
-        assert len(kargs['policy']) == kargs['env'].action_space
-        for ls_model, action_trajectory, action_policy in zip(self.action_model, kargs['trajectory'], kargs['policy']):
-            state, reward, next_state, terminal = action_trajectory.get_past_data()
-            if state.shape[0] == 0:
-                continue
-            reward = reward.view(-1, 1)
-            terminal = terminal.view(-1, 1)
-            Q_next = self.Q(next_state, kargs['bonus'])
-            if action_policy != None:
-                V_next = Q_next.gather(1, action_policy.view(-1, 1))
-            else:
-                V_next = Q_next.max(dim=1)[0].view(-1, 1)
-            V_next = torch.clamp(V_next, min=kargs['env'].min_clamp, max=kargs['env'].max_clamp)
-            Q = reward + kargs['discount'] * V_next * (1 - terminal)
-            ls_model.fit(state, Q)
-            assert Q.shape[1] == 1
-            assert ls_model.inv_cov.shape == (self.D, self.D)
-            assert ls_model.w.shape == (self.D, 1)
-
     def update1(self, ls_model, kargs, reward, state, terminal, V_next):
         m = torch.mean(reward)
         Q = reward + (V_next ) * (1 - terminal) - m
@@ -89,6 +69,7 @@ class Model:
         assert Q.shape[1] == 1
 
     def update2(self, ls_model, kargs, reward, state, terminal, V_next):
+        V_next = torch.clamp(V_next, max=kargs['env'].max_clamp)
         Q = reward + kargs['discount'] * V_next * (1 - terminal)
         #Q = torch.clamp(Q, min=kargs['env'].min_clamp, max=kargs['env'].max_clamp)
         ls_model.fit(state, Q)
@@ -107,7 +88,7 @@ class Model:
                 V_next = Q_next.gather(1, action_policy.view(-1, 1))
             else:
                 V_next = Q_next.max(dim=1)[0].view(-1, 1)
-            V_next = torch.clamp(V_next, min=kargs['env'].min_clamp, max=kargs['env'].max_clamp)
+            #V_next = torch.clamp(V_next, min=kargs['env'].min_clamp, max=kargs['env'].max_clamp)
 
             if action_policy != None:
                 self.update1(ls_model, kargs, reward, state, terminal,  V_next)
