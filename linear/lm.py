@@ -4,10 +4,11 @@ import torch
 
 class LeastSquare:
     def __init__(self, feature_size, beta, device):
-        self.w = torch.zeros(feature_size, 1)
+        #self.w = torch.zeros(feature_size, 1)
+        self.w = torch.rand(feature_size, 1) * 2 - 1
         self.beta = beta
         self.device = device
-        self.inv_cov = 1e4 * torch.eye(feature_size)
+        self.inv_cov = 10 * torch.eye(feature_size)
 
     def reset_w(self):
         self.w.fill_(0)
@@ -69,7 +70,7 @@ class Model:
         assert Q.shape[1] == 1
 
     def update2(self, ls_model, kargs, reward, state, terminal, V_next):
-        V_next = torch.clamp(V_next, max=kargs['env'].max_clamp)
+        #V_next = torch.clamp(V_next, max=kargs['env'].max_clamp)
         Q = reward + kargs['discount'] * V_next * (1 - terminal)
         #Q = torch.clamp(Q, min=kargs['env'].min_clamp, max=kargs['env'].max_clamp)
         ls_model.fit(state, Q)
@@ -88,13 +89,12 @@ class Model:
                 V_next = Q_next.gather(1, action_policy.view(-1, 1))
             else:
                 V_next = Q_next.max(dim=1)[0].view(-1, 1)
-            #V_next = torch.clamp(V_next, min=kargs['env'].min_clamp, max=kargs['env'].max_clamp)
+            V_next = torch.clamp(V_next, min=kargs['env'].min_clamp, max=kargs['env'].max_clamp)
 
             if action_policy != None:
                 self.update1(ls_model, kargs, reward, state, terminal,  V_next)
             else:
                 self.update2(ls_model, kargs, reward, state, terminal, V_next)
-
 
             assert ls_model.inv_cov.shape == (self.D, self.D)
             assert ls_model.w.shape == (self.D, 1)

@@ -25,6 +25,8 @@ class FourierTransform:
             self.dimension = self.k.shape[0]
 
         self.update_feature = setting['update_feature']
+        #self.dimension += 1
+        self.ftr_ = np.ones((1, self.dimension))
 
 
     def load(self):
@@ -42,5 +44,6 @@ class FourierTransform:
         if self.update_feature:
             self.scaler.partial_fit(ftr)
         ftr = self.scaler.transform(ftr)
+
         ftr = np.cos(np.pi * self.k.dot(ftr.T)).reshape(-1, self.dimension)
         return torch.from_numpy(ftr)

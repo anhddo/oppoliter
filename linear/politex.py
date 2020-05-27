@@ -29,7 +29,7 @@ class Politex:
         #print_info(setting)
         terminal = False
         target_track, time_step = [], []
-        tate = env.reset()
+        state = env.reset()
         state = ftr_transform.transform(state)
 
         episode_count = 0
@@ -38,6 +38,9 @@ class Politex:
 
         pbar = tqdm(total=setting['horizon_len'], leave=True)
         exploration_bonus = [[]]*setting['n_action']
+        
+        q_sum = 0
+                    #writer.add_scalar('ls/q', torch.max(), t)
         for i in range(setting['T']):
             #if setting['on_policy']:
             #    for e in trajectory:
@@ -66,9 +69,15 @@ class Politex:
                         for inv_cov in exploration_bonus[j]:
                             b[j] += torch.sqrt(state.mm(inv_cov).mm(state.T)).item()
                     q += b
-                d = softmax(setting['lr'] * q)
+                writer.add_scalar('politex/q_model', torch.max(q), t)
+                q_0 = torch.max(expert.Q(state, setting['bonus']))
+                q_sum += q_0
+                lr = setting['lr'] #/ q_0
+                writer.add_scalar('politex/q_sum', q_sum, t)
+                writer.add_scalar('politex/lr', lr, t)
+                d = softmax(lr * q)
                 action = np.random.choice(env.action_space, 1, p=d)[0]
-                writer.add_scalar('ls/prob', max(d), t)
+                writer.add_scalar('politex/prob', max(d), t)
                 next_state, true_reward, modified_reward, terminal, info = env.step(action)
                 sum_modified_reward += modified_reward
                 next_state = ftr_transform.transform(next_state)
@@ -87,9 +96,9 @@ class Politex:
                     policy.append(model.choose_action(next_state, setting['bonus']))
 
             n_eval = 0
-            #for e in expert.action_model:
-            #    pass
-            #    e.reset_w()
+            for e in expert.action_model:
+                pass
+                #e.reset_w()
             #while True:
             #    n_eval += 1
             #    loss = 0

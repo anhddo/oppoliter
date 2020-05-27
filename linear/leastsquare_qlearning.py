@@ -34,27 +34,34 @@ class LeastSquareQLearning:
         #setting['discount'] = 1 - setting['horizon_len']**(-1. / 4)
         #setting['beta'] = 1. / (1. - setting['discount'])
         epsilon = 1
-        writer = SummaryWriter(log_dir='logs/{}-'.format(setting['algo']) + setting['env'] + str( datetime.now()))
+        writer = SummaryWriter(log_dir='logs/{}-{}'\
+                .format(setting['algo'], '-optimistic' if setting['bonus'] else '') \
+                + setting['env'] + str( datetime.now()))
         sum_modified_reward = 0
         state_ = env.reset()
         state = ftr_transform.transform(state_)
         while t < setting['horizon_len']:
+            if setting['render']:
+                env._env.render()
             for _ in range(setting['sample_len']):
+                t += 1
+                if t == setting['horizon_len']:
+                    break
                 if terminal:
                     writer.add_scalar('ls/q', torch.max(model.Q(state, setting['bonus'])), t)
                     time_step.append(t)
                     target_track.append(env.tracking_value)
-                    writer.add_scalar('ls/reward', env.tracking_value, t)
+                    writer.add_scalar('ls/reward', sum_modified_reward, t)
                     writer.add_scalar('ls/t', env.t, t)
+                    sum_modified_reward = 0
                     state_ = env.reset()
                     state = ftr_transform.transform(state_)
-                t += 1
                 pbar.update()
                 action = 0
                 if setting['algo'] == 'egreedy':
-                    epsilon = max(setting['min_epsilon'], epsilon * setting['ep_decay'])
-                    writer.add_scalar('egreedy/epsilon', epsilon, t)
-                    if npr.uniform() < epsilon:
+                    #epsilon = max(setting['min_epsilon'], epsilon * setting['ep_decay'])
+                    #writer.add_scalar('egreedy/epsilon', epsilon, t)
+                    if npr.uniform() < setting['min_epsilon']:
                         action = npr.randint(setting['n_action'])
                     else:
                         action = model.choose_action(state, setting['bonus']).cpu().numpy()[0]
@@ -68,8 +75,6 @@ class LeastSquareQLearning:
                 trajectory[action].append(state, modified_reward, next_state, terminal)
                 model.action_model[action].update_cov(state)
                 state = next_state
-                if t == setting['horizon_len']:
-                    break
 
             policy = []
             if setting['algo'] == 'pol':

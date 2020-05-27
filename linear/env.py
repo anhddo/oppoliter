@@ -15,6 +15,7 @@ class EnvWrapper:
             self.action_space = 2
         elif env_name == 'Acrobot-v1':
             self.observation_space = 4
+            pass
         self.tracking_value = 0
         self.reset_tracking_value = 0
         self._max_episode_steps = self._env._max_episode_steps
@@ -26,14 +27,16 @@ class EnvWrapper:
             pass
 
         elif self.env_name == 'MountainCar-v0':
-            self.max_clamp = 0
+            self.max_clamp = self._env._max_episode_steps
             self.min_clamp = -self._env._max_episode_steps
             self.reset_tracking_value = self._env._max_episode_steps
 
         elif self.env_name == 'Acrobot-v1':
-            self.max_clamp = self._env._max_episode_steps
-            self.min_clamp = -self._env._max_episode_steps
-            self.reset_tracking_value = -self._env._max_episode_steps
+            self.max_clamp = 2 * self._env._max_episode_steps
+            self.min_clamp = -2 * self._env._max_episode_steps
+            #self.reset_tracking_value = -self._env._max_episode_steps
+            self.reset_tracking_value = 0
+
 
         elif self.env_name == 'LunarLander-v2':
             self.min_clamp = -500
@@ -58,8 +61,6 @@ class EnvWrapper:
             self.tracking_value += true_reward
         elif self.env_name == 'Acrobot-v1':
             state = self._env.state
-            #modified_reward = np.exp(-cos(state[0]) - cos(state[1] + state[0])) / 2.7
-            modified_reward = (-cos(state[0]) - cos(state[1] + state[0]) + 0.5) / 1.5
             self.tracking_value += modified_reward
         elif self.env_name == 'CartPoleSwingUp-v0':
             self.tracking_value += true_reward
