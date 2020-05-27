@@ -19,11 +19,19 @@ class Politex:
     def __init__(self):
         name = "Politex"
 
-    def choose_action(self, model, state, action_space, lr, exploration_bonus, use_bonus, n):
+    def bonus(self, state, inv_cov, setting):
+        return setting['beta'] * torch.sqrt(state.mm(inv_cov).mm(state.T))
+
+    def choose_action(self, setting, model, state, exploration_bonus, n):
         q = model.Q(state, False)#.squeeze(0)
-        if use_bonus:
-            pass
-        p = softmax(lr * q, dim=1)
+        if setting['bonus']:
+            b = torch.zeros(q.shape)
+            for j in range(setting['n_action']):
+                for inv_cov in exploration_bonus[j]:
+                    bonus = self.bonus(state, inv_cov, setting)
+                    b[j] += bonus
+            q += b
+        p = softmax(setting['lr'] * q, dim=1)
         A = torch.multinomial(p, n)
         return A
 
@@ -72,19 +80,13 @@ class Politex:
 
                 t += 1
                 q = model.Q(state, False).squeeze(0)
-                if setting['bonus']:
-                    b = torch.zeros(setting['n_action'])
-                    for j in range(setting['n_action']):
-                        for inv_cov in exploration_bonus[j]:
-                            b[j] += torch.sqrt(state.mm(inv_cov).mm(state.T)).item()
-                    q += b
                 #writer.add_scalar('politex/q_model', torch.max(q), t)
                 #q_0 = torch.max(expert.Q(state, setting['bonus']))
                 #q_sum += q_0
                 #writer.add_scalar('politex/q_sum', q_sum, t)
                 #writer.add_scalar('politex/lr', lr, t)
                 lr = setting['lr']
-                action = self.choose_action(model, state, env.action_space, lr, exploration_bonus, setting['bonus'], 1)
+                action = self.choose_action(setting, model, state, exploration_bonus, 1)
                 next_state, true_reward, modified_reward, terminal, info = env.step(action.item())
                 sum_modified_reward += modified_reward
                 next_state = ftr_transform.transform(next_state)
@@ -93,25 +95,19 @@ class Politex:
                 state = next_state
                 writer.add_scalar('ls/reward_raw', modified_reward, t)
 
-
             policy = []
             for trajectory_per_action in trajectory:
                 _, _, next_state, _ = trajectory_per_action.get_past_data()
                 if next_state.shape[0] == 0:
                     policy.append(None)
                 else:
+                    next_action = self.choose_action(setting, model, next_state, exploration_bonus, 1)
+                    policy.append(next_action)
 
-                    policy.append(self.choose_action(next_state, False))
-
-            #print(policy)
-            #import pdb; pdb.set_trace();
             n_eval = 0
             for e in expert.action_model:
                 pass
-                e.reset_w()
-            #while True:
-            #    n_eval += 1
-            #    loss = 0
+                #e.reset_w()
             loss = 0
             for _ in range(setting['n_eval']):
                 w = [m.w for m in expert.action_model]
@@ -121,8 +117,6 @@ class Politex:
                     loss += mse_loss(o_w, m.w)
                 #if loss < 1e-4:
             writer.add_scalar('politex/mse_w', loss, t)
-            #writer.add_scalar('politex/n_eval', n_eval, t)
-                    #break
 
             for e, m in zip(expert.action_model, model.action_model):
                 m.w += e.w

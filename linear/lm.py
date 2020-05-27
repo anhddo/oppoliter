@@ -63,8 +63,9 @@ class Model:
         return index
 
     def update1(self, ls_model, kargs, reward, state, terminal, V_next):
-        m = torch.mean(reward)
-        Q = reward + (V_next ) * (1 - terminal) - m
+        #m = torch.mean(reward)
+        #Q = reward + (V_next ) * (1 - terminal) - m
+        Q = reward + (V_next ) * (1 - terminal)
         #Q = torch.clamp(Q, min=kargs['env'].min_clamp, max=kargs['env'].max_clamp)
         ls_model.smooth_fit(state, Q)
         assert Q.shape[1] == 1
