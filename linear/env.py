@@ -32,9 +32,8 @@ class EnvWrapper:
             self.reset_tracking_value = self._env._max_episode_steps
 
         elif self.env_name == 'Acrobot-v1':
-            self.max_clamp = 2 * self._env._max_episode_steps
-            self.min_clamp = -2 * self._env._max_episode_steps
-            #self.reset_tracking_value = -self._env._max_episode_steps
+            self.max_clamp = self._env._max_episode_steps
+            self.min_clamp = -self._env._max_episode_steps
             self.reset_tracking_value = 0
 
 
@@ -58,7 +57,7 @@ class EnvWrapper:
         if self.env_name == 'CartPole-v0' or self.env_name == 'CartPole-v1':
             if terminal:
                 modified_reward = 0
-            self.tracking_value += true_reward
+            self.tracking_value += modified_reward
         elif self.env_name == 'Acrobot-v1':
             state = self._env.state
             self.tracking_value += modified_reward

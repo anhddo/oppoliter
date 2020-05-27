@@ -9,9 +9,6 @@ def initialize(setting):
     env = EnvWrapper(setting['env'])
     device = get_device(setting)
     horizon_len = setting['step']
-    if setting['algo'] == 'politex':
-        horizon_len = setting['T'] * setting['tau']
-    setting['horizon_len'] = horizon_len
     setting['n_action'] = env.action_space
     setting['n_observation'] = env.observation_space
     ftr_transform = FourierTransform(setting)

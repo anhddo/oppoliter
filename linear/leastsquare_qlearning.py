@@ -29,7 +29,7 @@ class LeastSquareQLearning:
         state = None
         episode_count = 0
         t = -1
-        pbar = tqdm(total=setting['horizon_len'], leave=True)
+        pbar = tqdm(total=setting['step'], leave=True)
         target_track, time_step = [], []
         #setting['discount'] = 1 - setting['horizon_len']**(-1. / 4)
         #setting['beta'] = 1. / (1. - setting['discount'])
@@ -40,18 +40,18 @@ class LeastSquareQLearning:
         sum_modified_reward = 0
         state_ = env.reset()
         state = ftr_transform.transform(state_)
-        while t < setting['horizon_len']:
+        while t < setting['step']:
             if setting['render']:
                 env._env.render()
             for _ in range(setting['sample_len']):
                 t += 1
-                if t == setting['horizon_len']:
+                if t == setting['step']:
                     break
                 if terminal:
                     writer.add_scalar('ls/q', torch.max(model.Q(state, setting['bonus'])), t)
                     time_step.append(t)
                     target_track.append(env.tracking_value)
-                    writer.add_scalar('ls/reward', sum_modified_reward, t)
+                    writer.add_scalar('ls/reward', env.tracking_value, t)
                     writer.add_scalar('ls/t', env.t, t)
                     sum_modified_reward = 0
                     state_ = env.reset()
