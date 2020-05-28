@@ -80,7 +80,6 @@ class Politex:
                     writer.add_scalar('ls/q', torch.max(expert.Q(state, setting['bonus'])), t)
                     writer.add_scalar('ls/reward', env.tracking_value, t)
                     writer.add_scalar('ls/t', env.t, t)
-                    #time.sleep(3)
                     state = env.reset()
                     state = ftr_transform.transform(state)
                     episode_count += 1
