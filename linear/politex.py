@@ -12,6 +12,7 @@ import pickle
 from torch.utils.tensorboard import SummaryWriter
 from datetime import datetime
 from torch.nn.functional import mse_loss, softmax
+import time
 
 
 
@@ -20,18 +21,23 @@ class Politex:
         name = "Politex"
 
     def bonus(self, state, inv_cov, setting):
-        return setting['beta'] * torch.sqrt(state.mm(inv_cov).mm(state.T))
+        inv_cov = inv_cov.to(self.device) if state.is_cuda else inv_cov
+        B = setting['beta'] * torch.sqrt(state.mm(inv_cov).mm(state.T).diagonal())
+        return B
 
-    def choose_action(self, setting, model, state, exploration_bonus, n):
-        q = model.Q(state, False)#.squeeze(0)
+    def bonus_list_inv_cov(self, state, list_inv_cov, setting):
+        B = [self.bonus(state, inv_cov, setting) for inv_cov in list_inv_cov]
+        B = torch.stack(B, dim=1)
+        B = torch.sum(B, dim=1)
+        return B
+
+    def choose_action(self, setting, model, state, arm_exploration_bonus, n):
+        Q = model.Q(state, False)#.squeeze(0)
         if setting['bonus']:
-            b = torch.zeros(q.shape)
-            for j in range(setting['n_action']):
-                for inv_cov in exploration_bonus[j]:
-                    bonus = self.bonus(state, inv_cov, setting)
-                    b[j] += bonus
-            q += b
-        p = softmax(setting['lr'] * q, dim=1)
+            bonus = [self.bonus_list_inv_cov(state, q_inv_cov_list, setting) for q_inv_cov_list in arm_exploration_bonus]
+            bonus = torch.stack(bonus, dim=1)
+            Q += bonus
+        p = softmax(setting['lr'] * Q, dim=1)
         A = torch.multinomial(p, n)
         return A
 
@@ -42,6 +48,7 @@ class Politex:
         env, trajectory, model, ftr_transform, device =\
                 init['env'], init['trajectory'], init['model'],\
                 init['ftr_transform'], init['device']
+        self.device = device
         sum_modified_reward = 0
         terminal = False
         target_track, time_step = [], []
@@ -53,11 +60,10 @@ class Politex:
         expert = Model(setting, device)
 
         pbar = tqdm(total=setting['step'], leave=True)
-        exploration_bonus = [[]]*setting['n_action']
+        exploration_bonus_per_action = [[expert.action_model[0].inv_cov.clone()]]*setting['n_action']
         q_sum = 0
         setting['K'] = int(np.sqrt(setting['step']))
         setting['tau'] = int(np.sqrt(setting['step']))
-        print('Phase', setting['K'], 'tau', setting['tau'])
         for i in range(setting['K']):
             #if setting['on_policy']:
             #    for e in trajectory:
@@ -67,12 +73,14 @@ class Politex:
             #        e.reset_cov()
             for _ in range(setting['tau']):
                 pbar.update()
+                #env._env.render()
                 if terminal:
                     time_step.append(t)
                     target_track.append(env.tracking_value)
                     writer.add_scalar('ls/q', torch.max(expert.Q(state, setting['bonus'])), t)
                     writer.add_scalar('ls/reward', env.tracking_value, t)
                     writer.add_scalar('ls/t', env.t, t)
+                    #time.sleep(3)
                     state = env.reset()
                     state = ftr_transform.transform(state)
                     episode_count += 1
@@ -86,14 +94,14 @@ class Politex:
                 #writer.add_scalar('politex/q_sum', q_sum, t)
                 #writer.add_scalar('politex/lr', lr, t)
                 lr = setting['lr']
-                action = self.choose_action(setting, model, state, exploration_bonus, 1)
+                action = self.choose_action(setting, model, state, exploration_bonus_per_action, 1)
                 next_state, true_reward, modified_reward, terminal, info = env.step(action.item())
                 sum_modified_reward += modified_reward
                 next_state = ftr_transform.transform(next_state)
                 trajectory[action].append(state, modified_reward, next_state, terminal)
                 expert.action_model[action].update_cov(state)
                 state = next_state
-                writer.add_scalar('ls/reward_raw', modified_reward, t)
+                #writer.add_scalar('ls/reward_raw', modified_reward, t)
 
             policy = []
             for trajectory_per_action in trajectory:
@@ -101,7 +109,7 @@ class Politex:
                 if next_state.shape[0] == 0:
                     policy.append(None)
                 else:
-                    next_action = self.choose_action(setting, model, next_state, exploration_bonus, 1)
+                    next_action = self.choose_action(setting, model, next_state, exploration_bonus_per_action, 1)
                     policy.append(next_action)
 
             n_eval = 0
@@ -122,7 +130,7 @@ class Politex:
                 m.w += e.w
 
             if setting['bonus']:
-                for inv_cov_list, action_model in zip(exploration_bonus, expert.action_model):
+                for inv_cov_list, action_model in zip(exploration_bonus_per_action, expert.action_model):
                     inv_cov_list.append(action_model.inv_cov.clone().detach())
 
         pbar.close()
