@@ -62,12 +62,21 @@ class EnvWrapper:
             self.tracking_value += modified_reward
         elif self.env_name == 'Acrobot-v1':
             state = self._env.state
+            s = state
+            height = -cos(s[0]) - cos(s[1] + s[0])
+            #if height > 1 or self.t >= 100:
+            #    terminal = True
+            if terminal:
+                modified_reward = 0
+
+
             self.tracking_value += true_reward
         elif self.env_name == 'CartPoleSwingUp-v0':
             self.tracking_value += true_reward
 
         elif self.env_name == 'MountainCar-v0':
-            self.tracking_value = self.t
+            self.tracking_value += true_reward
+            #print(modified_reward)
             if terminal:
                 modified_reward = 0
 

@@ -60,6 +60,7 @@ class Politex:
         q_sum = 0
         setting['K'] = int(np.sqrt(setting['step']))
         setting['tau'] = int(np.sqrt(setting['step']))
+        print(setting)
         for k in range(setting['K']):
             for _ in range(setting['tau']):
                 pbar.update()

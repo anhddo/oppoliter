@@ -7,6 +7,7 @@ class LeastSquare:
         #self.w = torch.rand(setting['feature_size'], 1) * 2 - 1
         self.w = torch.zeros(setting['feature_size'], 1)
         self.w = torch.nn.init.normal_(self.w)
+        self.t = 0
         #self.w = torch.ones(setting['feature_size'], 1) * 100
         #if setting['algo'] == 'politex':
         #    self.w = torch.ones(setting['feature_size'], 1)
@@ -73,7 +74,7 @@ class Model:
         assert Q.shape[1] == 1
 
     def update2(self, ls_model, kargs, reward, state, terminal, V_next):
-        Q = reward + kargs['discount'] * V_next * (1 - terminal)
+        Q = reward + V_next * (1 - terminal)
         ls_model.fit(state, Q)
         assert Q.shape[1] == 1
 
@@ -90,11 +91,15 @@ class Model:
                 V_next = Q_next.gather(1, action_policy.view(-1, 1))
             else:
                 V_next = Q_next.max(dim=1)[0].view(-1, 1)
-            V_next = torch.clamp(V_next, min=kargs['env'].min_clamp, max=kargs['env'].max_clamp)
+            H = kargs['env'].max_clamp
+            V_next = torch.clamp(V_next, min=kargs['env'].min_clamp, max=H)
 
             if action_policy != None:
-                self.update1(ls_model, kargs, reward, state, terminal,  V_next)
+                self.update2(ls_model, kargs, reward, state, terminal,  V_next)
             else:
+                if ls_model.t == 0:
+                    ls_model.t += 1
+                    V_next = H
                 self.update2(ls_model, kargs, reward, state, terminal, V_next)
 
             assert ls_model.inv_cov.shape == (self.D, self.D)

@@ -17,7 +17,7 @@ if __name__ == "__main__":
     parser.add_argument("--fourier-order", type=int, default=4)
     parser.add_argument("--algo", default='val')
     parser.add_argument("--beta", type=float, default=1)
-    parser.add_argument("--min-epsilon", type=float, default=0.01)
+    parser.add_argument("--min-epsilon", type=float, default=0.05)
     parser.add_argument("--ep-decay", type=float, default=0.999)
     parser.add_argument("--n-eval", type=int, default=5)
     parser.add_argument("--sample-len", type=int, default=1000)
@@ -48,7 +48,6 @@ if __name__ == "__main__":
     os.makedirs(parent_dir, exist_ok=True)
     setting['model_path'] = path.join(parent_dir, 'model.pkl')
 
-    print(setting)
     with open(path.join(parent_dir, 'setting.txt'), 'w') as f:
         f.write(str(setting))
 
