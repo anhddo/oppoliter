@@ -32,7 +32,7 @@ if __name__ == "__main__":
     parser.add_argument("--bonus", action='store_true')
     parser.add_argument("--step", type=int, default=10000)
     parser.add_argument("--repeat", type=int, default=1)
-    parser.add_argument("--discount", type=float, default=0.999)
+    parser.add_argument("--discount", type=float, default=0.9)
     parser.add_argument("--start-index", type=int, default=0)
     parser.add_argument("--save-dir")
     args = parser.parse_args()

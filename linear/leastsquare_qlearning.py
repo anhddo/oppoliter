@@ -31,12 +31,15 @@ class LeastSquareQLearning:
         t = -1
         pbar = tqdm(total=setting['step'], leave=True)
         target_track, time_step = [], []
-        epsilon = 1
+        epsilon = 0.8
         writer = SummaryWriter(log_dir='logs/{}-{}'\
                 .format(setting['algo'], '-optimistic' if setting['bonus'] else '') \
                 + setting['env'] + str( datetime.now()))
         state_ = env.reset()
         state = ftr_transform.transform(state_)
+        #setting['discount'] = 1. - setting['step'] ** (-1. / 4)
+        #setting['beta'] = 1. / (1. - setting['discount'])
+        #print(setting['discount'], setting['beta'])
         while t < setting['step']:
             if setting['render']:
                 env._env.render()
@@ -64,6 +67,7 @@ class LeastSquareQLearning:
                     epsilon = max(setting['min_epsilon'], epsilon * setting['ep_decay'])
                     writer.add_scalar('egreedy/epsilon', epsilon, t)
                     if npr.uniform() < epsilon:
+                    #if npr.uniform() < setting['min_epsilon']:
                         action = npr.randint(setting['n_action'])
                     else:
                         action = model.choose_action(state, False).cpu().numpy()[0]
@@ -71,9 +75,9 @@ class LeastSquareQLearning:
 
                     action = model.choose_action(state, setting['bonus']).cpu().numpy()[0]
                 next_state, true_reward, _, terminal, _ = env.step(action)
-                #print(model.action_model[action].bonus(state))
-                #import pdb; pdb.set_trace();
                 bonus = model.action_model[action].bonus(setting['beta'], state).item() if setting['bonus'] else 0
+                writer.add_scalar('ls/bonus', bonus, t)
+                writer.add_scalar('ls/w', torch.max(model.action_model[0].w), t)
                 modified_reward = true_reward + bonus
                 writer.add_scalar('ls/reward_raw', modified_reward, t)
                 state_=next_state

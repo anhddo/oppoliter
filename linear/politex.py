@@ -31,15 +31,11 @@ class Politex:
         B = torch.sum(B, dim=1)
         return B
 
-    def choose_action(self, setting, model, state, arm_exploration_bonus, n):
-        Q = model.Q(state, False)#.squeeze(0)
-        #if setting['bonus']:
-        #    bonus = [self.bonus_list_inv_cov(state, q_inv_cov_list, setting) for q_inv_cov_list in arm_exploration_bonus]
-        #    bonus = torch.stack(bonus, dim=1)
-        #    Q += bonus
+    def choose_action(self, setting, model, state):
+        Q = model.Q(state, setting['bonus'])#.squeeze(0)
         p = softmax(setting['lr'] * Q, dim=1)
-        A = torch.multinomial(p, n)
-        return A
+        A = torch.multinomial(p, 1)
+        return A, p
 
     def train(self, train_index, setting):
         init = initialize(setting)
@@ -49,6 +45,7 @@ class Politex:
                 init['env'], init['trajectory'], init['model'],\
                 init['ftr_transform'], init['device']
         self.device = device
+        self.writer = writer
         terminal = False
         target_track, time_step = [], []
         state = env.reset()
@@ -63,13 +60,7 @@ class Politex:
         q_sum = 0
         setting['K'] = int(np.sqrt(setting['step']))
         setting['tau'] = int(np.sqrt(setting['step']))
-        for i in range(setting['K']):
-            #if setting['on_policy']:
-            #    for e in trajectory:
-            #        e.reset()
-            #    for e in expert.action_model:
-            #        pass
-            #        e.reset_cov()
+        for k in range(setting['K']):
             for _ in range(setting['tau']):
                 pbar.update()
                 #env._env.render()
@@ -84,16 +75,15 @@ class Politex:
                     episode_count += 1
 
                 t += 1
-                #q = model.Q(state, False).squeeze(0)
-                #writer.add_scalar('politex/q_model', torch.max(q), t)
-                #q_0 = torch.max(expert.Q(state, setting['bonus']))
-                #q_sum += q_0
-                #writer.add_scalar('politex/q_sum', q_sum, t)
-                #writer.add_scalar('politex/lr', lr, t)
-                action = self.choose_action(setting, model, state, exploration_bonus_per_action, 1)
+                action, p = self.choose_action(setting, model, state)
+                #print(action, p)
                 next_state, true_reward, _, terminal, info = env.step(action.item())
-                bonus = model.action_model[action].bonus(setting['beta'], state).item() if setting['bonus'] else 0
-                modified_reward = true_reward + bonus
+                bonus = expert.action_model[action].bonus(setting['beta'], state).item() if setting['bonus'] else 0
+                writer.add_scalar('ls/bonus', bonus, t)
+                modified_reward = true_reward
+                #modified_reward = true_reward + bonus
+                writer.add_scalar('ls/modified_reward', modified_reward, t)
+                writer.add_scalar('ls/w', torch.max(expert.action_model[0].w), t)
                 next_state = ftr_transform.transform(next_state)
                 trajectory[action].append(state, modified_reward, next_state, terminal)
                 expert.action_model[action].update_cov(state)
@@ -106,13 +96,13 @@ class Politex:
                 if next_state.shape[0] == 0:
                     policy.append(None)
                 else:
-                    next_action = self.choose_action(setting, model, next_state, exploration_bonus_per_action, 1)
+                    next_action, _ = self.choose_action(setting, model, next_state)
                     policy.append(next_action)
 
             n_eval = 0
-            for e in expert.action_model:
-                pass
-                #e.reset_w()
+            #for e in expert.action_model:
+            #    pass
+            #    #e.reset_w()
             loss = 0
             for _ in range(setting['n_eval']):
                 w = [m.w for m in expert.action_model]
@@ -131,6 +121,7 @@ class Politex:
 
         pbar.close()
         env.reset()
+        #env._env.close()
         ftr_transform.save()
         with open(path.join(setting['save_dir'], 'result{}.pkl'.format(train_index)), 'wb') as f:
             pickle.dump([target_track, time_step], f)

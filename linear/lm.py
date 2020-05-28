@@ -3,24 +3,24 @@ import torch
 
 
 class LeastSquare:
-    def __init__(self, feature_size, beta, device):
-        #self.w = torch.rand(feature_size, 1) * 2 - 1
-        self.w = torch.zeros(feature_size, 1)
-        self.beta = beta
+    def __init__(self, setting, device):
+        #self.w = torch.rand(setting['feature_size'], 1) * 2 - 1
+        self.w = torch.zeros(setting['feature_size'], 1)
+        self.w = torch.nn.init.normal_(self.w)
+        #self.w = torch.ones(setting['feature_size'], 1) * 100
+        #if setting['algo'] == 'politex':
+        #    self.w = torch.ones(setting['feature_size'], 1)
+        self.beta = setting['beta']
         self.device = device
-        self.inv_cov = 10 * torch.eye(feature_size)
+        self.inv_cov = 10 * torch.eye(setting['feature_size'])
 
     def reset_w(self):
         self.w.fill_(0)
-
-    #def reset_cov(self):
-    #    self.inv_cov = 1e4 * torch.eye(self.inv_cov.shape[0])
 
     def bonus(self, beta, x):
         inv_cov = self.inv_cov.to(self.device) if x.is_cuda else self.inv_cov
         b = beta * torch.sqrt(x.mm(inv_cov).mm(x.T).diagonal())#.view(-1, 1)
         return b
-
 
     def predict(self, x, use_bonus):
         w = self.w.to(self.device) if x.is_cuda else self.w
@@ -29,9 +29,7 @@ class LeastSquare:
             B = self.bonus(self.beta, x).view(-1, 1)
             assert Q.shape == B.shape
             Q += B
-
         return Q
-
 
     def update_cov(self, state_t):
         A = self.inv_cov
@@ -52,10 +50,9 @@ class LeastSquare:
     def smooth_fit(self, X, y):
         self.w = self.w * 0.9 + 0.1 * self.fit_(X, y)
 
-
 class Model:
     def __init__(self, setting, device):
-        self.action_model = [LeastSquare(setting['feature_size'], setting['beta'], device)\
+        self.action_model = [LeastSquare(setting, device)\
                 for _ in range(setting['n_action'])]
         self.D = setting['feature_size']
 
@@ -70,8 +67,9 @@ class Model:
         return index
 
     def update1(self, ls_model, kargs, reward, state, terminal, V_next):
-        Q = reward + (V_next ) * (1 - terminal)
-        ls_model.smooth_fit(state, Q)
+        Q = reward + V_next * (1 - terminal)# - torch.mean(reward)
+        #Q = reward + V_next - torch.mean(reward)
+        ls_model.fit(state, Q)
         assert Q.shape[1] == 1
 
     def update2(self, ls_model, kargs, reward, state, terminal, V_next):
