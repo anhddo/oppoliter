@@ -101,7 +101,7 @@ class LeastSquareQLearning:
 
             for _ in range(setting['n_eval']):
                 model.average_reward_algorithm(trajectory=trajectory, env=env,\
-                        discount=setting['discount'], bonus=False, policy=policy)
+                        discount=setting['discount'], bonus=setting['bonus'], policy=policy)
         env.reset()
         env._env.close()
         pbar.close()

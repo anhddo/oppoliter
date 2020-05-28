@@ -64,7 +64,7 @@ class EnvWrapper:
             state = self._env.state
             s = state
             height = -cos(s[0]) - cos(s[1] + s[0])
-            #if height > 1 or self.t >= 100:
+            #if height > 1:
             #    terminal = True
             if terminal:
                 modified_reward = 0
