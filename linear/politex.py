@@ -33,10 +33,10 @@ class Politex:
 
     def choose_action(self, setting, model, state, arm_exploration_bonus, n):
         Q = model.Q(state, False)#.squeeze(0)
-        if setting['bonus']:
-            bonus = [self.bonus_list_inv_cov(state, q_inv_cov_list, setting) for q_inv_cov_list in arm_exploration_bonus]
-            bonus = torch.stack(bonus, dim=1)
-            Q += bonus
+        #if setting['bonus']:
+        #    bonus = [self.bonus_list_inv_cov(state, q_inv_cov_list, setting) for q_inv_cov_list in arm_exploration_bonus]
+        #    bonus = torch.stack(bonus, dim=1)
+        #    Q += bonus
         p = softmax(setting['lr'] * Q, dim=1)
         A = torch.multinomial(p, n)
         return A
@@ -49,7 +49,6 @@ class Politex:
                 init['env'], init['trajectory'], init['model'],\
                 init['ftr_transform'], init['device']
         self.device = device
-        sum_modified_reward = 0
         terminal = False
         target_track, time_step = [], []
         state = env.reset()
@@ -83,19 +82,18 @@ class Politex:
                     state = env.reset()
                     state = ftr_transform.transform(state)
                     episode_count += 1
-                    sum_modified_reward = 0
 
                 t += 1
-                q = model.Q(state, False).squeeze(0)
+                #q = model.Q(state, False).squeeze(0)
                 #writer.add_scalar('politex/q_model', torch.max(q), t)
                 #q_0 = torch.max(expert.Q(state, setting['bonus']))
                 #q_sum += q_0
                 #writer.add_scalar('politex/q_sum', q_sum, t)
                 #writer.add_scalar('politex/lr', lr, t)
-                lr = setting['lr']
                 action = self.choose_action(setting, model, state, exploration_bonus_per_action, 1)
-                next_state, true_reward, modified_reward, terminal, info = env.step(action.item())
-                sum_modified_reward += modified_reward
+                next_state, true_reward, _, terminal, info = env.step(action.item())
+                bonus = model.action_model[action].bonus(setting['beta'], state).item() if setting['bonus'] else 0
+                modified_reward = true_reward + bonus
                 next_state = ftr_transform.transform(next_state)
                 trajectory[action].append(state, modified_reward, next_state, terminal)
                 expert.action_model[action].update_cov(state)
@@ -119,18 +117,17 @@ class Politex:
             for _ in range(setting['n_eval']):
                 w = [m.w for m in expert.action_model]
                 expert.average_reward_algorithm(trajectory=trajectory, env=env,\
-                        discount=setting['discount'], bonus=setting['bonus'], policy=policy)
+                        discount=setting['discount'], bonus=False, policy=policy)
                 for o_w, m in zip(w, expert.action_model):
                     loss += mse_loss(o_w, m.w)
-                #if loss < 1e-4:
             writer.add_scalar('politex/mse_w', loss, t)
 
             for e, m in zip(expert.action_model, model.action_model):
                 m.w += e.w
 
-            if setting['bonus']:
-                for inv_cov_list, action_model in zip(exploration_bonus_per_action, expert.action_model):
-                    inv_cov_list.append(action_model.inv_cov.clone().detach())
+            #if setting['bonus']:
+            #    for inv_cov_list, action_model in zip(exploration_bonus_per_action, expert.action_model):
+            #        inv_cov_list.append(action_model.inv_cov.clone().detach())
 
         pbar.close()
         env.reset()

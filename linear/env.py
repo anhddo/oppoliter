@@ -2,11 +2,13 @@ import gym
 import numpy as np
 from numpy import cos
 import gym_cartpole_swingup
+import random
 
 class EnvWrapper:
     def __init__(self, env_name):
         self._env = gym.make(env_name)
         self.env_name = env_name
+        self._env.seed(random.randint(0, 9999))
         self.observation_space = self._env.observation_space.shape[0]
         self.action_space = self._env.action_space.n
         if env_name == 'BipedalWalker-v3':
@@ -60,7 +62,7 @@ class EnvWrapper:
             self.tracking_value += modified_reward
         elif self.env_name == 'Acrobot-v1':
             state = self._env.state
-            self.tracking_value += modified_reward
+            self.tracking_value += true_reward
         elif self.env_name == 'CartPoleSwingUp-v0':
             self.tracking_value += true_reward
 
