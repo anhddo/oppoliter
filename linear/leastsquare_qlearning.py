@@ -79,7 +79,7 @@ class LeastSquareQLearning:
                 bonus = model.action_model[action].bonus(setting['beta'], state).item() if setting['bonus'] else 0
                 writer.add_scalar('ls/bonus', bonus, t)
                 writer.add_scalar('ls/w', torch.max(model.action_model[0].w), t)
-                modified_reward += bonus
+                #modified_reward += bonus
                 writer.add_scalar('ls/reward_raw', modified_reward, t)
                 state_=next_state
 
