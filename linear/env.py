@@ -31,7 +31,6 @@ class EnvWrapper:
         elif self.env_name == 'MountainCar-v0':
             self.max_clamp = self._env._max_episode_steps
             self.min_clamp = -self._env._max_episode_steps
-            self.reset_tracking_value = self._env._max_episode_steps
 
         elif self.env_name == 'Acrobot-v1':
             self.max_clamp = self._env._max_episode_steps
@@ -62,21 +61,23 @@ class EnvWrapper:
             self.tracking_value += modified_reward
         elif self.env_name == 'Acrobot-v1':
             state = self._env.state
-            s = state
-            height = -cos(s[0]) - cos(s[1] + s[0])
-            #if height > 1:
+            #s = state
+            #height = -cos(s[0]) - cos(s[1] + s[0])
+            #terminal = False
+            #modified_reward = -1
+            #if height > 1.9:
             #    terminal = True
-            if terminal:
-                modified_reward = 0
+            #    modified_reward = 0
 
+            #if self.t > 200:
+            #    terminal = True
 
-            self.tracking_value += true_reward
+            self.tracking_value += modified_reward
         elif self.env_name == 'CartPoleSwingUp-v0':
             self.tracking_value += true_reward
 
         elif self.env_name == 'MountainCar-v0':
             self.tracking_value += true_reward
-            #print(modified_reward)
             if terminal:
                 modified_reward = 0
 

@@ -4,13 +4,9 @@ import torch
 
 class LeastSquare:
     def __init__(self, setting, device):
-        #self.w = torch.rand(setting['feature_size'], 1) * 2 - 1
         self.w = torch.zeros(setting['feature_size'], 1)
         self.w = torch.nn.init.normal_(self.w)
         self.t = 0
-        #self.w = torch.ones(setting['feature_size'], 1) * 100
-        #if setting['algo'] == 'politex':
-        #    self.w = torch.ones(setting['feature_size'], 1)
         self.beta = setting['beta']
         self.device = device
         self.inv_cov = 10 * torch.eye(setting['feature_size'])

@@ -50,12 +50,14 @@ class LeastSquareQLearning:
                     break
                 #env._env.render()
                 if terminal:
-                    #time.sleep(3)
+                    #time.sleep(2)
                     #A = env._env.render(mode='rgb_array')
                     #im = Image.fromarray(A)
                     #im.save('notebook/img/{}-{}.png'.format(env.tracking_value, env.tracking_value))
-                    #print(env.tracking_value)
                     writer.add_scalar('ls/q', torch.max(model.Q(state, setting['bonus'])), t)
+                    #print()
+                    #print(env.tracking_value)
+                    #print()
                     time_step.append(t)
                     target_track.append(env.tracking_value)
                     writer.add_scalar('ls/reward', env.tracking_value, t)
@@ -81,27 +83,13 @@ class LeastSquareQLearning:
                 writer.add_scalar('ls/w', torch.max(model.action_model[0].w), t)
                 #modified_reward += bonus
                 writer.add_scalar('ls/reward_raw', modified_reward, t)
-                state_=next_state
-
                 next_state = ftr_transform.transform(next_state)
                 trajectory[action].append(state, modified_reward, next_state, terminal)
                 model.action_model[action].update_cov(state)
+                model.average_reward_algorithm(trajectory=trajectory, env=env,\
+                        discount=setting['discount'], bonus=setting['bonus'], policy=[None] * setting['n_action'])
                 state = next_state
 
-            policy = []
-            if setting['algo'] == 'pol':
-                for trajectory_per_action in trajectory:
-                    _, _, next_state, _ = trajectory_per_action.get_past_data()
-                    if next_state.shape[0] == 0:
-                        policy.append(None)
-                    else:
-                        policy.append(model.choose_action(next_state, setting['bonus']))
-            else:
-                policy = [None] * env.action_space
-
-            for _ in range(setting['n_eval']):
-                model.average_reward_algorithm(trajectory=trajectory, env=env,\
-                        discount=setting['discount'], bonus=setting['bonus'], policy=policy)
         env.reset()
         env._env.close()
         pbar.close()
