@@ -14,15 +14,15 @@ def initialize(setting):
     ftr_transform = FourierTransform(setting)
     setting['feature_size'] = ftr_transform.dimension
 
-    trajectory = [
-        Trajectory(ftr_transform.dimension, device, horizon_len)
-            for _ in range(env.action_space)
-    ]
+    #trajectory = [
+    #    Trajectory(ftr_transform.dimension, device, horizon_len)
+    #        for _ in range(env.action_space)
+    #]
     model = Model(setting, device)
     return {
             'env': env,
             'ftr_transform': ftr_transform,
-            'trajectory': trajectory,
+            #'trajectory': trajectory,
             'model': model,
             'device': device
             }

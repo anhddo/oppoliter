@@ -20,8 +20,9 @@ class LeastSquareQLearning:
 
     def train(self, train_index, setting) :
         init = initialize(setting)
-        env, trajectory, model, ftr_transform, device =\
-                init['env'], init['trajectory'], init['model'],\
+        env, model, ftr_transform, device =\
+                init['env'],\
+                init['model'],\
                 init['ftr_transform'], init['device']
         #print_info(setting)
         terminal = False
@@ -67,10 +68,10 @@ class LeastSquareQLearning:
                 pbar.update()
                 action = 0
                 if setting['algo'] == 'egreedy':
-                    epsilon = max(setting['min_epsilon'], epsilon * setting['ep_decay'])
-                    writer.add_scalar('egreedy/epsilon', epsilon, t)
-                    if npr.uniform() < epsilon:
-                    #if npr.uniform() < setting['min_epsilon']:
+                    #epsilon = max(setting['min_epsilon'], epsilon * setting['ep_decay'])
+                    #writer.add_scalar('egreedy/epsilon', epsilon, t)
+                    #if npr.uniform() < epsilon:
+                    if npr.uniform() < setting['min_epsilon']:
                         action = npr.randint(setting['n_action'])
                     else:
                         action = model.choose_action(state, False).cpu().numpy()[0]
@@ -83,11 +84,14 @@ class LeastSquareQLearning:
                 #modified_reward += bonus
                 writer.add_scalar('ls/reward_raw', modified_reward, t)
                 next_state = ftr_transform.transform(next_state)
-                trajectory[action].append(state, modified_reward, next_state, terminal)
-                model.action_model[action].update_cov(state)
+                model.action_model[action].trajectory.append(state, modified_reward, next_state, terminal)
+                #model.action_model[action].update_cov(state)
                 if t % setting['sample_len'] == 0:
-                    model.average_reward_algorithm(trajectory=trajectory, env=env,\
-                            discount=setting['discount'], bonus=setting['bonus'], policy=[None] * setting['n_action'])
+                    model.average_reward_algorithm(
+                            env=env,
+                            bonus=setting['bonus'],
+                            policy=[None] * setting['n_action']
+                        )
                 state = next_state
 
         env.reset()

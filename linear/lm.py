@@ -1,5 +1,6 @@
 import pickle
 import torch
+from .trajectory import Trajectory
 
 
 class LeastSquare:
@@ -9,14 +10,16 @@ class LeastSquare:
         self.t = 0
         self.beta = setting['beta']
         self.device = device
-        self.inv_cov = 10 * torch.eye(setting['feature_size'])
-        self.last_inv_cov = 10 * torch.eye(setting['feature_size'])
+        #self.inv_cov = 10 * torch.eye(setting['feature_size'])
+        #self.last_inv_cov = 10 * torch.eye(setting['feature_size'])
+        self.trajectory = Trajectory(setting, device, setting['buffer_size'])
 
     def reset_w(self):
         self.w.fill_(0)
 
     def bonus(self, beta, x):
-        inv_cov = self.inv_cov.to(self.device) if x.is_cuda else self.inv_cov
+        inv_cov = self.trajectory.inv_cov
+        inv_cov = inv_cov.to(self.device) if x.is_cuda else inv_cov
         b = beta * torch.sqrt(x.mm(inv_cov).mm(x.T).diagonal())#.view(-1, 1)
         return b
 
@@ -30,9 +33,10 @@ class LeastSquare:
         return Q
 
     def update_cov(self, state_t):
-        A = self.last_inv_cov
-        d = 1. + state_t.mm(A).mm(state_t.T)
-        self.last_inv_cov -= A.mm(state_t.T).mm(state_t.mm(A)) / d
+        self.trajectory.update_cov(state_t)
+        #A = self.last_inv_cov
+        #d = 1. + state_t.mm(A).mm(state_t.T)
+        #self.last_inv_cov -= A.mm(state_t.T).mm(state_t.mm(A)) / d
 
     def convert_to_cpu(self):
         self.w = self.w.cpu()
@@ -40,11 +44,11 @@ class LeastSquare:
         self.inv_cov = self.inv_cov.cpu()
 
     def fit_(self, X, y):
-        return self.last_inv_cov.to(self.device).mm(X.T.mm(y)).to('cpu')
+        return self.trajectory.last_inv_cov.to(self.device).mm(X.T.mm(y)).to('cpu')
 
     def fit(self, X, y):
         self.w = self.fit_(X, y)
-        self.inv_cov = self.last_inv_cov.clone()
+        self.trajectory.inv_cov = self.trajectory.last_inv_cov.clone()
 
     def smooth_fit(self, X, y):
         self.w = self.w * 0.9 + 0.1 * self.fit_(X, y)
@@ -78,8 +82,8 @@ class Model:
 
     def average_reward_algorithm(self, **kargs):
         assert len(kargs['policy']) == kargs['env'].action_space
-        for ls_model, action_trajectory, action_policy in zip(self.action_model, kargs['trajectory'], kargs['policy']):
-            state, reward, next_state, terminal = action_trajectory.get_past_data()
+        for ls_model, action_policy in zip(self.action_model, kargs['policy']):
+            state, reward, next_state, terminal = ls_model.trajectory.get_past_data()
             if state.shape[0] == 0:
                 continue
             reward = reward.view(-1, 1)
@@ -100,7 +104,7 @@ class Model:
                     V_next = H
                 self.update2(ls_model, kargs, reward, state, terminal, V_next)
 
-            assert ls_model.inv_cov.shape == (self.D, self.D)
+            #assert ls_model.trajectory.inv_cov.shape == (self.D, self.D)
             assert ls_model.w.shape == (self.D, 1)
 
 
