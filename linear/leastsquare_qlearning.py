@@ -86,8 +86,9 @@ class LeastSquareQLearning:
                 next_state = ftr_transform.transform(next_state)
                 trajectory[action].append(state, modified_reward, next_state, terminal)
                 model.action_model[action].update_cov(state)
-                model.average_reward_algorithm(trajectory=trajectory, env=env,\
-                        discount=setting['discount'], bonus=setting['bonus'], policy=[None] * setting['n_action'])
+                if t % setting['sample_len'] == 0:
+                    model.average_reward_algorithm(trajectory=trajectory, env=env,\
+                            discount=setting['discount'], bonus=setting['bonus'], policy=[None] * setting['n_action'])
                 state = next_state
 
         env.reset()
