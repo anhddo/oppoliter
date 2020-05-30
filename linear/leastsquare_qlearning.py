@@ -54,7 +54,7 @@ class LeastSquareQLearning:
                     #A = env._env.render(mode='rgb_array')
                     #im = Image.fromarray(A)
                     #im.save('notebook/img/{}-{}.png'.format(env.tracking_value, env.tracking_value))
-                    writer.add_scalar('ls/q', torch.max(model.Q(state, setting['bonus'])), t)
+                    writer.add_scalar('ls/q', torch.max(model.Q(state, False)), t)
                     #print()
                     #print(env.tracking_value)
                     #print()
@@ -67,15 +67,14 @@ class LeastSquareQLearning:
                 pbar.update()
                 action = 0
                 if setting['algo'] == 'egreedy':
-                    epsilon = max(setting['min_epsilon'], epsilon * setting['ep_decay'])
-                    writer.add_scalar('egreedy/epsilon', epsilon, t)
-                    if npr.uniform() < epsilon:
-                    #if npr.uniform() < setting['min_epsilon']:
+                    #epsilon = max(setting['min_epsilon'], epsilon * setting['ep_decay'])
+                    #writer.add_scalar('egreedy/epsilon', epsilon, t)
+                    #if npr.uniform() < epsilon:
+                    if npr.uniform() < setting['min_epsilon']:
                         action = npr.randint(setting['n_action'])
                     else:
                         action = model.choose_action(state, False).cpu().numpy()[0]
                 else:
-
                     action = model.choose_action(state, setting['bonus']).cpu().numpy()[0]
                 next_state, _, modified_reward, terminal, _ = env.step(action)
                 bonus = model.action_model[action].bonus(setting['beta'], state).item() if setting['bonus'] else 0

@@ -20,7 +20,7 @@ if __name__ == "__main__":
     parser.add_argument("--min-epsilon", type=float, default=0.05)
     parser.add_argument("--ep-decay", type=float, default=0.999)
     parser.add_argument("--n-eval", type=int, default=5)
-    parser.add_argument("--sample-len", type=int, default=1000)
+    parser.add_argument("--sample-len", type=int, default=5)
     parser.add_argument("--update-feature", action='store_true')
     parser.add_argument("--on-policy", action='store_true')
     parser.add_argument("--T", type=int, default=5)

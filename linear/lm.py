@@ -10,6 +10,7 @@ class LeastSquare:
         self.beta = setting['beta']
         self.device = device
         self.inv_cov = 10 * torch.eye(setting['feature_size'])
+        self.last_inv_cov = 10 * torch.eye(setting['feature_size'])
 
     def reset_w(self):
         self.w.fill_(0)
@@ -29,9 +30,9 @@ class LeastSquare:
         return Q
 
     def update_cov(self, state_t):
-        A = self.inv_cov
+        A = self.last_inv_cov
         d = 1. + state_t.mm(A).mm(state_t.T)
-        self.inv_cov -= A.mm(state_t.T).mm(state_t.mm(A)) / d
+        self.last_inv_cov -= A.mm(state_t.T).mm(state_t.mm(A)) / d
 
     def convert_to_cpu(self):
         self.w = self.w.cpu()
@@ -39,10 +40,11 @@ class LeastSquare:
         self.inv_cov = self.inv_cov.cpu()
 
     def fit_(self, X, y):
-        return self.inv_cov.to(self.device).mm(X.T.mm(y)).to('cpu')
+        return self.last_inv_cov.to(self.device).mm(X.T.mm(y)).to('cpu')
 
     def fit(self, X, y):
         self.w = self.fit_(X, y)
+        self.inv_cov = self.last_inv_cov.clone()
 
     def smooth_fit(self, X, y):
         self.w = self.w * 0.9 + 0.1 * self.fit_(X, y)
@@ -93,9 +95,9 @@ class Model:
             if action_policy != None:
                 self.update2(ls_model, kargs, reward, state, terminal,  V_next)
             else:
-                if ls_model.t == 0:
-                    ls_model.t += 1
-                    V_next = H
+                #if ls_model.t == 0:
+                #    ls_model.t += 1
+                #    V_next = H
                 self.update2(ls_model, kargs, reward, state, terminal, V_next)
 
             assert ls_model.inv_cov.shape == (self.D, self.D)

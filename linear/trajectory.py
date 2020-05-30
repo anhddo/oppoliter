@@ -4,21 +4,25 @@ import torch
 class Trajectory:
     def __init__(self, D, device, horizon_len=10000):
         self.index = -1
+        #horizon_len = 10000
         self.state = torch.zeros(horizon_len, D, dtype=torch.double, device=device)
         self.next_state = torch.zeros(horizon_len, D, dtype=torch.double, device=device)
         self.reward = torch.zeros(horizon_len, dtype=torch.double, device=device)
         self.terminal = torch.zeros(horizon_len, dtype=torch.double, device=device)
         self.horizon_len = horizon_len
+        self.last_index = -1
 
 
     def append(self, state, reward, next_state, terminal):
-        self.index = self.index + 1
+        #self.last_index = min(self.last_index + 1, self.horizon_len)
+        self.index = (self.index + 1) % self.horizon_len
         self.state[self.index, :] = state
         self.next_state[self.index, :] = next_state
         self.reward[self.index] = reward
         self.terminal[self.index] = int(terminal)
 
     def get_past_data(self):
+        #index = self.last_index + 1
         index = self.index + 1
         return (self.state[:index, :],
                 self.reward[:index],
