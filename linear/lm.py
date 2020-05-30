@@ -95,9 +95,9 @@ class Model:
             if action_policy != None:
                 self.update2(ls_model, kargs, reward, state, terminal,  V_next)
             else:
-                #if ls_model.t == 0:
-                #    ls_model.t += 1
-                #    V_next = H
+                if ls_model.t == 0:
+                    ls_model.t += 1
+                    V_next = H
                 self.update2(ls_model, kargs, reward, state, terminal, V_next)
 
             assert ls_model.inv_cov.shape == (self.D, self.D)

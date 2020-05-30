@@ -12,6 +12,9 @@ class Trajectory:
         self.horizon_len = horizon_len
         self.last_index = -1
 
+   #     self.inv_cov = 10 * torch.eye(setting['feature_size'])
+   #     self.last_inv_cov = 10 * torch.eye(setting['feature_size'])
+
 
     def append(self, state, reward, next_state, terminal):
         #self.last_index = min(self.last_index + 1, self.horizon_len)
@@ -20,6 +23,15 @@ class Trajectory:
         self.next_state[self.index, :] = next_state
         self.reward[self.index] = reward
         self.terminal[self.index] = int(terminal)
+
+    #def update_cov(self, state_t, remove=False):
+    #    A = self.last_inv_cov
+    #    d = 1. + state_t.mm(A).mm(state_t.T)
+    #    U = A.mm(state_t.T).mm(state_t.mm(A)) / d
+    #    if remove:
+    #        self.last_inv_cov += U
+    #    else:
+    #        self.last_inv_cov -= U
 
     def get_past_data(self):
         #index = self.last_index + 1

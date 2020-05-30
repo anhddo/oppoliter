@@ -67,10 +67,10 @@ class LeastSquareQLearning:
                 pbar.update()
                 action = 0
                 if setting['algo'] == 'egreedy':
-                    #epsilon = max(setting['min_epsilon'], epsilon * setting['ep_decay'])
-                    #writer.add_scalar('egreedy/epsilon', epsilon, t)
-                    #if npr.uniform() < epsilon:
-                    if npr.uniform() < setting['min_epsilon']:
+                    epsilon = max(setting['min_epsilon'], epsilon * setting['ep_decay'])
+                    writer.add_scalar('egreedy/epsilon', epsilon, t)
+                    if npr.uniform() < epsilon:
+                    #if npr.uniform() < setting['min_epsilon']:
                         action = npr.randint(setting['n_action'])
                     else:
                         action = model.choose_action(state, False).cpu().numpy()[0]
