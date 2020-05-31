@@ -97,6 +97,6 @@ class LeastSquareQLearning:
         env.reset()
         env._env.close()
         pbar.close()
-        ftr_transform.save()
+        #ftr_transform.save()
         with open(path.join(setting['save_dir'], 'result{}.pkl'.format(train_index)), 'wb') as f:
             pickle.dump([target_track, time_step], f)
