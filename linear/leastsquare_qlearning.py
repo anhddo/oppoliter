@@ -26,6 +26,7 @@ class LeastSquareQLearning:
                 init['ftr_transform'], init['device']
         #print_info(setting)
         terminal = False
+        model.H = setting['step'] ** (1./4)
 
         print(setting)
         state = None
@@ -81,7 +82,7 @@ class LeastSquareQLearning:
                 bonus = model.action_model[action].bonus(setting['beta'], state).item() if setting['bonus'] else 0
                 writer.add_scalar('ls/bonus', bonus, t)
                 writer.add_scalar('ls/w', torch.max(model.action_model[0].w), t)
-                #modified_reward += bonus
+                modified_reward += bonus
                 writer.add_scalar('ls/reward_raw', modified_reward, t)
                 next_state = ftr_transform.transform(next_state)
                 model.action_model[action].trajectory.append(state, modified_reward, next_state, terminal)
@@ -89,8 +90,8 @@ class LeastSquareQLearning:
                 if t % setting['sample_len'] == 0:
                     model.average_reward_algorithm(
                             env=env,
-                            bonus=setting['bonus'],
-                            policy=[None] * setting['n_action']
+                            bonus=False,
+                            policy=[None] * setting['n_action'],
                         )
                 state = next_state
 

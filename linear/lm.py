@@ -93,15 +93,17 @@ class Model:
                 V_next = Q_next.gather(1, action_policy.view(-1, 1))
             else:
                 V_next = Q_next.max(dim=1)[0].view(-1, 1)
-            H = kargs['env'].max_clamp
-            V_next = torch.clamp(V_next, min=kargs['env'].min_clamp, max=H)
+            #V_next = torch.clamp(V_next, min=kargs['env'].min_clamp, max=H)
+            V_next = torch.clamp(V_next ,max=self.H)
+            #print(self.H)
+
 
             if action_policy != None:
                 self.update2(ls_model, kargs, reward, state, terminal,  V_next)
             else:
-                if ls_model.t == 0:
-                    ls_model.t += 1
-                    V_next = H
+                #if ls_model.t == 0:
+                #    ls_model.t += 1
+                #    V_next = H
                 self.update2(ls_model, kargs, reward, state, terminal, V_next)
 
             #assert ls_model.trajectory.inv_cov.shape == (self.D, self.D)

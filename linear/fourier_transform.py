@@ -33,6 +33,9 @@ class FourierTransform:
         self.k = np.stack(c).T
         self.dimension = self.k.shape[0]
 
+        #if path.exists(self.path):
+        #    self.load()
+
         self.update_feature = setting['update_feature']
         #self.dimension += 1
         self.ftr_ = np.ones((1, self.dimension))
@@ -57,9 +60,7 @@ class FourierTransform:
 
     def transform(self, ftr):
         ftr = ftr.reshape(1, -1)
-        #if self.env_name == 'Acrobot-v1':
         ftr = (ftr - self.min_data) / self.range_data
-        #print(ftr)
 
         #if self.update_feature:
         #    self.scaler.partial_fit(ftr)
