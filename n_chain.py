@@ -6,6 +6,8 @@ import pandas as pd
 import numpy as np
 from tqdm import trange
 import numpy.random as npr
+from torch.utils.tensorboard import SummaryWriter
+from datetime import datetime
 
 
 class Env():
@@ -87,6 +89,10 @@ if __name__ == "__main__":
     setting = vars(args)
     assert setting['algo'] in ['opt', 'greedy', 'noex']
     agent = Agent(setting['chain'], setting['step'])
+    writer = SummaryWriter(log_dir='logs/n_chain/{}-{}-{}'\
+            .format(setting['algo'], setting['chain'], setting['step']) + str( datetime.now()))
+
+    #df.to_csv('tmp/n_chain/{}_{}_{}'.format(setting['algo'], setting['chain'], setting['step']))
 
     if setting['algo']=='noex' or setting['algo'] == 'greedy':
         agent.B = 0
@@ -100,14 +106,17 @@ if __name__ == "__main__":
     state = []
     s = 0
 
+    c_reward = 0
     for t in trange(setting['step']):
         a = agent.action(s)
         ns, r = env.step(a)
+        c_reward += r
         agent.update(s, r, a, ns)
         #print(s, r, 'right' if a==1 else 'left', ns)
+        writer.add_scalar('reward', c_reward, t)
         reward.append(r)
         state.append(s)
         s = ns
     df = pd.DataFrame({'reward': reward, 'state': state})
     #print(agent.Q)
-    df.to_csv('tmp/n_chain/{}_{}_{}'.format(setting['algo'], setting['chain'], setting['step']))
+    #df.to_csv('tmp/n_chain/{}_{}_{}'.format(setting['algo'], setting['chain'], setting['step']))
