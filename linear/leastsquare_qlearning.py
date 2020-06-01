@@ -12,11 +12,18 @@ from datetime import datetime
 from math import cos
 import time
 from PIL import Image
+import gc
 
 
 class LeastSquareQLearning:
     def __init__(self):
         self.name = "Least square value iteration"
+
+    def transform(self, x, setting, ftr_transform, device):
+        if setting['use_nn']:
+           return ftr_transform.transform(torch.Tensor(x).to(device).detach())
+        else:
+           return ftr_transform.transform(x)
 
     def train(self, train_index, setting) :
         init = initialize(setting)
@@ -26,7 +33,6 @@ class LeastSquareQLearning:
                 init['ftr_transform'], init['device']
         #print_info(setting)
         terminal = False
-        model.H = setting['step'] ** (1./4)
 
         print(setting)
         state = None
@@ -39,7 +45,7 @@ class LeastSquareQLearning:
                 .format(setting['algo'], '-optimistic' if setting['bonus'] else '') \
                 + setting['env'] + str( datetime.now()))
         state_ = env.reset()
-        state = ftr_transform.transform(state_)
+        state = self.transform(state_, setting, ftr_transform, device)
         #setting['discount'] = 1. - setting['step'] ** (-1. / 4)
         #setting['beta'] = 1. / (1. - setting['discount'])
         #print(setting['discount'], setting['beta'])
@@ -65,7 +71,8 @@ class LeastSquareQLearning:
                     writer.add_scalar('ls/reward', env.tracking_value, t)
                     writer.add_scalar('ls/t', env.t, t)
                     state_ = env.reset()
-                    state = ftr_transform.transform(state_)
+                    state = self.transform(state_, setting, ftr_transform, device)
+                    torch.cuda.empty_cache()
                 pbar.update()
                 action = 0
                 if setting['algo'] == 'egreedy':
@@ -84,13 +91,16 @@ class LeastSquareQLearning:
                 writer.add_scalar('ls/w', torch.max(model.action_model[0].w), t)
                 modified_reward += bonus
                 writer.add_scalar('ls/reward_raw', modified_reward, t)
-                next_state = ftr_transform.transform(next_state)
+                next_state = self.transform(next_state, setting, ftr_transform, device)
+                #next_state = ftr_transform.transform(next_state)
+                #next_state = state
                 model.action_model[action].trajectory.append(state, modified_reward, next_state, terminal)
                 #model.action_model[action].update_cov(state)
                 if t % setting['sample_len'] == 0:
                     model.average_reward_algorithm(
                             env=env,
-                            bonus=False,
+                            #bonus=setting['bonus'],
+                            bonus=setting['bonus'],
                             policy=[None] * setting['n_action'],
                         )
                 state = next_state

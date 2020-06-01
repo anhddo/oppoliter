@@ -60,7 +60,7 @@ class FourierTransform:
 
     def transform(self, ftr):
         ftr = ftr.reshape(1, -1)
-        ftr = (ftr - self.min_data) / self.range_data
+        #ftr = (ftr - self.min_data) / self.range_data
 
         #if self.update_feature:
         #    self.scaler.partial_fit(ftr)

@@ -2,6 +2,7 @@ from .trajectory import Trajectory
 from .fourier_transform import FourierTransform
 from .lm import Model
 from .env import EnvWrapper
+from .ddqn import DQN
 import torch
 import pickle
 
@@ -11,7 +12,13 @@ def initialize(setting):
     horizon_len = setting['step']
     setting['n_action'] = env.action_space
     setting['n_observation'] = env.observation_space
-    ftr_transform = FourierTransform(setting)
+    if setting['use_nn']:
+        ftr_transform = DQN(setting['n_observation'], env.action_space, 16, device).to(device)
+        ftr_transform.load_state_dict(torch.load('tmp/{}-nn-model'.format(setting['env'])))
+        ftr_transform.eval()
+        ftr_transform.dimension = 16
+    else:
+        ftr_transform = FourierTransform(setting)
     setting['feature_size'] = ftr_transform.dimension
 
     #trajectory = [

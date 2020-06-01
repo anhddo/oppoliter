@@ -12,35 +12,36 @@ class Trajectory:
         self.horizon_len = horizon_len
         self.last_index = -1
 
-        self.inv_cov = 10 * torch.eye(setting['feature_size'])
-        self.last_inv_cov = 10 * torch.eye(setting['feature_size'])
+        self.inv_cov = 10 * torch.eye(setting['feature_size'], requires_grad = False)
+        self.last_inv_cov = 10 * torch.eye(setting['feature_size'], requires_grad=False)
 
 
     def append(self, state, reward, next_state, terminal):
-        self.last_index = min(self.last_index + 1, self.horizon_len)
-        self.index = (self.index + 1) % self.horizon_len
-        old_state = self.state[self.index, :]
+        with torch.no_grad():
+            self.last_index = min(self.last_index + 1, self.horizon_len)
+            self.index = (self.index + 1) % self.horizon_len
+            old_state = self.state[self.index, :]
 
-        self.update_cov(old_state, remove=True)
+            self.update_cov(old_state, remove=True)
 
-        self.state[self.index, :] = state
-        self.next_state[self.index, :] = next_state
-        self.reward[self.index] = reward
-        self.terminal[self.index] = int(terminal)
+            self.state[self.index, :] = state
+            self.next_state[self.index, :] = next_state
+            self.reward[self.index] = reward
+            self.terminal[self.index] = int(terminal)
 
-        self.update_cov(state, remove=False)
+            self.update_cov(state, remove=False)
 
     def update_cov(self, state_t, remove=False):
-        state_t = state_t.view(1, -1).cpu()
-        A = self.last_inv_cov
-        #print(state_t.shape, A.shape)
-        #print(state_t.cpu(), A.is_cuda)
-        d = 1. + state_t.mm(A).mm(state_t.T)
-        U = A.mm(state_t.T).mm(state_t.mm(A)) / d
-        if remove:
-            self.last_inv_cov += U
-        else:
-            self.last_inv_cov -= U
+        with torch.no_grad():
+            state_t = state_t.view(1, -1).cpu()
+            A = self.last_inv_cov
+            d = 1. + state_t.mm(A).mm(state_t.T)
+            U = A.mm(state_t.T).mm(state_t.mm(A)) / d
+            if remove:
+                self.last_inv_cov += U
+            else:
+                self.last_inv_cov -= U
+
 
     def get_past_data(self):
         index = self.last_index + 1
