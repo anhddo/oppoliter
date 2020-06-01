@@ -24,7 +24,7 @@ from datetime import datetime
 # default `log_dir` is "runs" - we'll be more specific here
 
 parser = argparse.ArgumentParser(description="Finite-horizon MDP")
-parser.add_argument("--env", default='CartPole-v0')
+parser.add_argument("--env", default='Acrobot-v1')
 parser.add_argument("--step", type=int, default=10000)
 parser.add_argument("--embeded-size", type=int, default=16)
 parser.add_argument("--target-update", type=int, default=500)
