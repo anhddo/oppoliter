@@ -58,6 +58,7 @@ class Model:
         self.action_model = [LeastSquare(setting, device)\
                 for _ in range(setting['n_action'])]
         self.D = setting['feature_size']
+        self.H = setting['step'] ** (1./4)
 
     def Q(self, state, use_bonus):
         q = [m.predict(state, use_bonus) for m in self.action_model]

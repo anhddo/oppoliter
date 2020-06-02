@@ -22,49 +22,6 @@ from torch.utils.tensorboard import SummaryWriter
 from datetime import datetime
 
 # default `log_dir` is "runs" - we'll be more specific here
-
-parser = argparse.ArgumentParser(description="Finite-horizon MDP")
-parser.add_argument("--env", default='Acrobot-v1')
-parser.add_argument("--step", type=int, default=10000)
-parser.add_argument("--embeded-size", type=int, default=8)
-parser.add_argument("--target-update", type=int, default=500)
-parser.add_argument("--optimistic", action="store_true")
-parser.add_argument("--algo", default='')
-parser.add_argument("--render", action="store_true")
-parser.add_argument("--cpu", action="store_true")
-parser.add_argument("--repeat", type=int, default=1)
-parser.add_argument("--batch-size", type=int, default=32)
-parser.add_argument("--beta", type=float, default=0.01)
-parser.add_argument("--eps-factor", type=float, default=0.999)
-parser.add_argument("--start-index", type=int, default=0)
-parser.add_argument("--saved-dir")
-args = parser.parse_args()
-setting = vars(args)
-
-writer = SummaryWriter( 'logs/{}-{}-bs{}-ut-{}-{}'.format(
-    setting['env'],
-    setting['algo'],
-    setting['batch_size'],
-    setting['target_update'],
-    datetime.now()
-    ))
-env = gym.make(setting['env'])
-n_actions = env.action_space.n
-n_observations = env.observation_space.shape[0]
-
-torch.set_default_tensor_type(torch.DoubleTensor)
-
-device = torch.device("cuda" if torch.cuda.is_available() and not setting['cpu'] else "cpu")
-
-
-
-BATCH_SIZE = setting['batch_size']
-GAMMA = 0.95
-EPS_START = 0.9
-EPS_END = 0.01
-
-
-
 class ReplayMemory(object):
     def __init__(self, capacity):
         self.capacity = capacity
@@ -122,62 +79,48 @@ class Memory:
 
 
 class DQN(nn.Module):
-    def __init__(self, input_dim, output_dim):
+    def __init__(self, input_dim, output_dim, embeded_size, device):
         super(DQN, self).__init__()
+        self.device = device
         n = 32
         self.ln1 = nn.Linear(input_dim, n)
-        #self.ln2 = nn.Linear(n, n)
-        self.ln5 = nn.Linear(n, setting['embeded_size'])
-        self.head = nn.Linear(setting['embeded_size'], output_dim)
-        self.inv_cov = [torch.eye(setting['embeded_size']).to(device) * 1e5] * n_actions
+        self.ln2 = nn.Linear(n, n)
+        self.ln5 = nn.Linear(n, embeded_size)
+        self.head = nn.Linear(embeded_size, output_dim)
+        #self.inv_cov = [torch.eye(embeded_size).to(device) * 1e5] * n_actions
         #self.inv_cov = [torch.inverse(M) for M in self.cov]
         self.input_dim = input_dim
         nn.init.kaiming_uniform_(self.ln1.weight, nonlinearity='relu')
-        #nn.init.kaiming_uniform_(self.ln2.weight, nonlinearity='relu')
+        nn.init.kaiming_uniform_(self.ln2.weight, nonlinearity='relu')
         nn.init.kaiming_uniform_(self.ln5.weight, nonlinearity='relu')
         nn.init.kaiming_uniform_(self.head.weight, nonlinearity='relu')
 
-    def embeded_vector(self, x):
-        x = x.view(-1, self.input_dim).to(device)
+    def transform(self, x):
+        x = x.view(-1, self.input_dim).to(self.device)
         x = F.relu(self.ln1(x))
-        #x = F.relu(self.ln2(x))
+        x = F.relu(self.ln2(x))
         x = F.relu(self.ln5(x))
         return x
 
     def q(self, x):
-        v = self.embeded_vector(x)
+        v = self.transform(x)
         o = self.head(v)
         return o, v
 
-    def bonus(self, v):
-        b = [setting['beta'] * torch.sqrt(v.mm(M).mm(v.T).diagonal()) for M in self.inv_cov]
-        b = torch.stack(b, axis=1)
-        return b
 
     def forward(self, x):
         o, v = self.q(x)
-        #if setting['algo'] == 'optimistic':
-        #    #with torch.no_grad():
-        #    b = self.bonus(v).detach()
-        #    o += b
-        #o = torch.clamp(o, max=env._max_episode_steps)
         return o
-
-
-steps_done = 0
-
-
-policy_net, target_net = None, None
 
 def no_explore(policy_net, state):
     with torch.no_grad():
         #import pdb; pdb.set_trace();
-        o, v = policy_net.q(state)
-        action = (o + policy_net.bonus(v)).max(1)[1].view(1,1)
+        o = policy_net(state)
+        #action = (o + policy_net.bonus(v)).max(1)[1].view(1,1)
+        action = o.max(1)[1].view(1,1)
         assert action <=n_actions
         return action
 
-eps_threshold=1.
 def epsilon_greedy(policy_net, state, t):
     global eps_threshold
     sample = random.random()
@@ -193,7 +136,6 @@ def epsilon_greedy(policy_net, state, t):
         return action
 
 
-episode_durations = []
 
 
 
@@ -213,10 +155,6 @@ def optimize_model(policy_net, target_net, optimizer, memory, t):
     Q1 = r + GAMMA * Q1
     Q1[dones] = r[dones]
 
-    if setting['algo'] == 'optimistic':
-        v = policy_net.embeded_vector(s0)
-        b = policy_net.bonus(v)
-        writer.add_scalar('dqn/bonus', torch.mean(b), t)
 
     loss = F.mse_loss(Q, Q1)
     writer.add_scalar('dqn/Q', torch.mean(Q), t)
@@ -229,13 +167,14 @@ def optimize_model(policy_net, target_net, optimizer, memory, t):
     return loss
 
 
-def training():
-    policy_net = DQN(n_observations, n_actions).to(device)
-    target_net = DQN(n_observations, n_actions).to(device)
+def training(setting):
+    policy_net = DQN(n_observations, n_actions, setting['embeded_size'], device).to(device)
+    target_net = DQN(n_observations, n_actions, setting['embeded_size'], device).to(device)
     reward_track = []
     timestep = []
     terminal = True
     state = env.reset()
+    #state = env.state
     #state = torch.tensor([state], device=device)
     target_net.load_state_dict(policy_net.state_dict())
     target_net.eval()
@@ -259,14 +198,15 @@ def training():
         elif setting['algo'] == 'optimistic':
             action = no_explore(policy_net, state0)
             action_index = action.item()
-            x = policy_net.embeded_vector(state0)
+            x = policy_net.transform(state0)
             #policy_net.cov[action_index] += x.T.mm(x)
             #policy_net.inv_cov[action_index] = torch.inverse(policy_net.cov[action_index])
             A = policy_net.inv_cov[action_index]
             #policy_net.inv_cov[action_index] = 0.99999 * A - A.mm(x.T).mm(x.mm(A)) / (1. + x.mm(A).mm(x.T))
-            policy_net.inv_cov[action_index] = A - A.mm(x.T).mm(x.mm(A)) / (1. + x.mm(A).mm(x.T))
+            #policy_net.inv_cov[action_index] = A - A.mm(x.T).mm(x.mm(A)) / (1. + x.mm(A).mm(x.T))
         action_index = action.item()
         next_state, reward, terminal, _ = env.step(action_index)
+        #next_state = env.state
         max_position = max(max_position, next_state[0])
         if setting['render']:
             env.render()
@@ -283,8 +223,8 @@ def training():
             #scheduler.step()
             if t % setting['target_update'] == 0:
                 target_net.load_state_dict(policy_net.state_dict())
-                if setting['algo'] == 'optimistic':
-                    target_net.inv_cov = [e.detach().clone() for e in policy_net.inv_cov]
+                #if setting['algo'] == 'optimistic':
+                #    target_net.inv_cov = [e.detach().clone() for e in policy_net.inv_cov]
         #print(t)
         #import pdb; pdb.set_trace();
         #if t > 0 and t % 30000 == 0:
@@ -292,25 +232,79 @@ def training():
         #    target_net.inv_cov = [torch.eye(setting['embeded_size']).to(device) * 1e5] * n_actions
         if terminal:
             state = env.reset()
+            #state = env.state
             reward_track.append(ep_reward)
             timestep.append(t)
             writer.add_scalar('dqn/reward', ep_reward, t)
             max_position = -1
             ep_reward = 0
 
-    torch.save(policy_net.state_dict(), 'tmp/bot-nn-model')
+    torch.save(policy_net.state_dict(), '../tmp/bot-nn-model')
     return reward_track, timestep
 
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Finite-horizon MDP")
+    parser.add_argument("--env", default='Acrobot-v1')
+    parser.add_argument("--step", type=int, default=10000)
+    parser.add_argument("--embeded-size", type=int, default=16)
+    parser.add_argument("--target-update", type=int, default=500)
+    parser.add_argument("--optimistic", action="store_true")
+    parser.add_argument("--algo", default='')
+    parser.add_argument("--render", action="store_true")
+    parser.add_argument("--cpu", action="store_true")
+    parser.add_argument("--repeat", type=int, default=1)
+    parser.add_argument("--batch-size", type=int, default=32)
+    parser.add_argument("--beta", type=float, default=0.01)
+    parser.add_argument("--eps-factor", type=float, default=0.999)
+    parser.add_argument("--start-index", type=int, default=0)
+    parser.add_argument("--saved-dir")
+    args = parser.parse_args()
+    setting = vars(args)
 
-os.makedirs(setting['saved_dir'], exist_ok=True)
-run_time = []
-for t in range(setting['start_index'], setting['start_index'] + setting['repeat']):
-    start = timeit.default_timer()
-    reward_track, timestep = training()
-    with open(path.join(setting['saved_dir'], 'result{}.pkl'.format(t)), 'wb') as f:
-        pickle.dump([reward_track, timestep], f)
-    stop = timeit.default_timer()
-    run_time.append('round:{}, {} s.'.format(t, stop - start))
-    print('\n'.join(run_time))
+    writer = SummaryWriter( '../logs/{}-{}-bs{}-ut-{}-{}'.format(
+        setting['env'],
+        setting['algo'],
+        setting['batch_size'],
+        setting['target_update'],
+        datetime.now()
+        ))
+    env = gym.make(setting['env'])
+    n_actions = env.action_space.n
+    n_observations = env.observation_space.shape[0]
+    #if setting['env'] == 'Acrobot-v1':
+    #    n_observations = 4
+    print(n_observations)
 
-env.close()
+    torch.set_default_tensor_type(torch.DoubleTensor)
+
+    device = torch.device("cuda" if torch.cuda.is_available() and not setting['cpu'] else "cpu")
+
+
+
+    BATCH_SIZE = setting['batch_size']
+    GAMMA = 0.95
+    EPS_START = 0.9
+    EPS_END = 0.01
+
+
+
+
+    steps_done = 0
+
+
+    policy_net, target_net = None, None
+    eps_threshold=1.
+    episode_durations = []
+
+    os.makedirs(setting['saved_dir'], exist_ok=True)
+    run_time = []
+    for t in range(setting['start_index'], setting['start_index'] + setting['repeat']):
+        start = timeit.default_timer()
+        reward_track, timestep = training(setting)
+        with open(path.join(setting['saved_dir'], 'result{}.pkl'.format(t)), 'wb') as f:
+            pickle.dump([reward_track, timestep], f)
+        stop = timeit.default_timer()
+        run_time.append('round:{}, {} s.'.format(t, stop - start))
+        print('\n'.join(run_time))
+
+    env.close()

@@ -15,9 +15,9 @@ class EnvWrapper:
             self.action_space = self._env.action_space.shape[0]
         elif env_name == 'CartPoleSwingUp-v0':
             self.action_space = 2
-        elif env_name == 'Acrobot-v1':
-            self.observation_space = 4
-            pass
+        #elif env_name == 'Acrobot-v1':
+        #    self.observation_space = 4
+        #    pass
         self.tracking_value = 0
         self.reset_tracking_value = 0
         self._max_episode_steps = self._env._max_episode_steps
@@ -60,7 +60,7 @@ class EnvWrapper:
                 modified_reward = 0
             self.tracking_value += modified_reward
         elif self.env_name == 'Acrobot-v1':
-            state = self._env.state
+            #state = self._env.state
             #s = state
             #height = -cos(s[0]) - cos(s[1] + s[0])
             #terminal = False
@@ -91,6 +91,7 @@ class EnvWrapper:
         self.tracking_value = self.reset_tracking_value
         state = self._env.reset()
         if self.env_name == 'Acrobot-v1':
-            return self._env.state
+            pass
+            #return self._env.state
         return state
 
