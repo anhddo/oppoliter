@@ -3,9 +3,12 @@ import numpy as np
 from numpy import cos
 import gym_cartpole_swingup
 import random
+import numpy.random as npr
 
 class EnvWrapper:
-    def __init__(self, env_name):
+    def __init__(self, setting):
+        env_name = setting['env']
+        self.random_reward = setting['random_reward']
         self._env = gym.make(env_name)
         self.env_name = env_name
         self._env.seed(random.randint(0, 9999))
@@ -15,9 +18,9 @@ class EnvWrapper:
             self.action_space = self._env.action_space.shape[0]
         elif env_name == 'CartPoleSwingUp-v0':
             self.action_space = 2
-        #elif env_name == 'Acrobot-v1':
-        #    self.observation_space = 4
-        #    pass
+        elif env_name == 'Acrobot-v1':
+            self.observation_space = 4
+            pass
         self.tracking_value = 0
         self.reset_tracking_value = 0
         self._max_episode_steps = self._env._max_episode_steps
@@ -56,11 +59,13 @@ class EnvWrapper:
         modified_reward = true_reward
 
         if self.env_name == 'CartPole-v0' or self.env_name == 'CartPole-v1':
-            if terminal:
+            #if terminal a:
+            if terminal and self.t < self._env._max_episode_steps:
+                #print(terminal, modified_reward, self.t)
                 modified_reward = 0
             self.tracking_value += modified_reward
         elif self.env_name == 'Acrobot-v1':
-            #state = self._env.state
+            state = self._env.state
             #s = state
             #height = -cos(s[0]) - cos(s[1] + s[0])
             #terminal = False
@@ -78,8 +83,15 @@ class EnvWrapper:
 
         elif self.env_name == 'MountainCar-v0':
             self.tracking_value += true_reward
-            if terminal:
+            if terminal and self.t < self._env._max_episode_steps:
                 modified_reward = 0
+                if self.random_reward:
+                    if npr.uniform() < 0.1:
+                        modified_reward = 0
+                    else:
+                        modified_reward = -1
+                #print(terminal, modified_reward)
+            #if terminal:
 
         elif self.env_name == 'LunarLander-v2':
             self.tracking_value += true_reward
@@ -92,6 +104,6 @@ class EnvWrapper:
         state = self._env.reset()
         if self.env_name == 'Acrobot-v1':
             pass
-            #return self._env.state
+            return self._env.state
         return state
 

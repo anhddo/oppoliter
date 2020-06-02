@@ -22,6 +22,7 @@ if __name__ == "__main__":
     parser.add_argument("--n-eval", type=int, default=5)
     parser.add_argument("--sample-len", type=int, default=5)
     parser.add_argument("--use-nn", action='store_true')
+    parser.add_argument("--random-reward", action='store_true')
     parser.add_argument("--T", type=int, default=5)
     parser.add_argument("--buffer-size", type=int, default=5000)
     parser.add_argument("--tau", type=int, default=1000)

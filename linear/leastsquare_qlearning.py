@@ -56,16 +56,17 @@ class LeastSquareQLearning:
                 t += 1
                 if t == setting['step']:
                     break
-                #env._env.render()
                 if terminal:
-                    #time.sleep(2)
+                    #env._env.render()
                     #A = env._env.render(mode='rgb_array')
                     #im = Image.fromarray(A)
                     #im.save('notebook/img/{}-{}.png'.format(env.tracking_value, env.tracking_value))
                     writer.add_scalar('ls/q', torch.max(model.Q(state, False)), t)
                     #print()
                     #print(env.tracking_value)
+                    #print(modified_reward)
                     #print()
+                    #time.sleep(2)
                     time_step.append(t)
                     target_track.append(env.tracking_value)
                     writer.add_scalar('ls/reward', env.tracking_value, t)

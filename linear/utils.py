@@ -7,7 +7,7 @@ import torch
 import pickle
 
 def initialize(setting):
-    env = EnvWrapper(setting['env'])
+    env = EnvWrapper(setting)
     device = get_device(setting)
     horizon_len = setting['step']
     setting['n_action'] = env.action_space

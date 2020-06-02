@@ -9,7 +9,7 @@ import numpy.random as npr
 from torch.utils.tensorboard import SummaryWriter
 from datetime import datetime
 
-
+np.set_printoptions(suppress=True)
 class Env():
     def __init__(self, N):
         self.c_s = 0
@@ -50,19 +50,36 @@ class Agent:
         #self.H *= 0.1
         #self.B *= 0.1
         self.g = 1. - 1. / self.B
+        #print(self.B, self.g)
         #self.Q = np.zeros((N, n_action))
+        self.bonus_ = np.zeros((N, n_action))
         self.Q = np.ones((N, n_action)) * self.H
-        self.N = np.ones((N, n_action))
+        self.Q[0,0] = 0
+        self.Q[N - 1,1] = 0
+        self.N = np.zeros((N, n_action))
         self.n_action = n_action
         self.N_ = N
-        #print(self.H, self.g)
+
+        self.avg_reward = 0
+
+        print(self.H, self.g)
 
     def bonus(self, s, a):
+        if s==0 and a == 0:
+            return 0
+        if s==self.N_ and a == 1:
+            return 0
         n = self.N[s, a]
         B = self.H if np.abs(n) < 1e-4 else 1. / np.sqrt(n)
-        return self.B * B
+        B = self.B * B
+        self.bonus_[s, a] = B
+        return B
 
     def action(self, s):
+        if s == 0:
+            return 1
+        if s == self.N_ - 1:
+            return 0
         bonus = np.array([self.bonus(s, a) for a in range(self.n_action)])
         Q = self.Q[s, :] + bonus
         #if s== self.N_-2:
@@ -76,9 +93,14 @@ class Agent:
         return v
 
 
-    def update(self, s, r, a, ns):
+    def update(self, s, r, a, ns, t):
         self.N[s, a] += 1
-        self.Q[s, a] = r + self.g * self.V(ns)
+        v= self.V(ns)
+        self.Q[s, a] = r + self.g * v
+        #print(self.g, s, a, r, v)
+        #self.Q[s, a] = r + self.V(ns) - self.avg_reward
+
+        self.avg_reward = (self.avg_reward * t + a) / (t + 1)
 
 
 if __name__ == "__main__":
@@ -109,24 +131,41 @@ if __name__ == "__main__":
     s = 0
 
     c_reward = 0
+
+    #print(agent.Q)
+    #print()
+    #print(agent.N)
+
     for t in trange(setting['step']):
-        a = agent.action(s)
+        a = 0
+        if setting['algo'] == 'greedy':
+            if npr.uniform() < 0.1:
+                a = npr.randint(2)
+            else:
+                a = agent.action(s)
+        else:
+            a = agent.action(s)
+
         ns, r = env.step(a)
         #if s == N -2:
         #    print(s,r, a, ns, t)
         c_reward += r
-        agent.update(s, r, a, ns)
-        #print(s, r, 'right' if a==1 else 'left', ns)
+        agent.update(s, r, a, ns, t)
         writer.add_scalar('chain/reward', c_reward, t)
         writer.add_scalar('chain/Q', agent.Q[s, a], t)
-        writer.add_scalar('detail/Q_n-2, 0', agent.Q[N-2, 0], t)
-        writer.add_scalar('detail/Q_n-2, 1', agent.Q[N-2, 1], t)
+        writer.add_scalar('detail/Q_n-2, 0', agent.Q[1, 0], t)
+        writer.add_scalar('detail/Q_n-2, 1', agent.Q[1, 1], t)
         writer.add_scalar('chain/bonus', agent.bonus(s, a), t)
         writer.add_scalar('chain/state', s, t)
         writer.add_scalar('chain/single reward', r, t)
         reward.append(r)
         state.append(s)
         s = ns
+    print(134, agent.Q[1, 0], agent.Q[N-2, 1])
     df = pd.DataFrame({'reward': reward, 'state': state})
     #print(agent.Q)
+    #print()
+    #print(agent.N)
+    #print('bonus')
+    #print(agent.bonus_)
     df.to_csv('tmp/n_chain/{}_{}_{}'.format(setting['algo'], setting['chain'], setting['step']))
