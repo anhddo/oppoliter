@@ -23,7 +23,6 @@ class Env():
             self.c_s += 1
 
 
-
         r = 0
         if self.c_s == 0:
             r = 0.01
@@ -48,25 +47,27 @@ class Agent:
         n_action = 2
         self.H = T**(1. / 4)
         self.B = self.H
-        self.g = 1. - 1. / self.B
         #self.H *= 0.1
         #self.B *= 0.1
+        self.g = 1. - 1. / self.B
         #self.Q = np.zeros((N, n_action))
         self.Q = np.ones((N, n_action)) * self.H
-        self.N = np.ones((N, n_action)) * 1. / self.H
+        self.N = np.ones((N, n_action))
         self.n_action = n_action
+        self.N_ = N
+        #print(self.H, self.g)
 
     def bonus(self, s, a):
-        return self.B * 1. /np.sqrt(self.N[s, a])
+        n = self.N[s, a]
+        B = self.H if np.abs(n) < 1e-4 else 1. / np.sqrt(n)
+        return self.B * B
 
     def action(self, s):
         bonus = np.array([self.bonus(s, a) for a in range(self.n_action)])
         Q = self.Q[s, :] + bonus
-        #print(bonus)
-        #if s==1:
-        #    print(s, self.Q[s,:], bonus, Q)
+        #if s== self.N_-2:
+        #    print(bonus, Q, self.Q[s,:], 'l' if self.Q[s,0] > self.Q[s,1] else 'r')
         a = np.argmax(Q)
-        self.N[s, a] += 1
         return a
 
     def V(self, s):
@@ -76,6 +77,7 @@ class Agent:
 
 
     def update(self, s, r, a, ns):
+        self.N[s, a] += 1
         self.Q[s, a] = r + self.g * self.V(ns)
 
 
@@ -89,7 +91,7 @@ if __name__ == "__main__":
     setting = vars(args)
     assert setting['algo'] in ['opt', 'greedy', 'noex']
     agent = Agent(setting['chain'], setting['step'])
-    writer = SummaryWriter(log_dir='logs/n_chain/{}-{}-{}'\
+    writer = SummaryWriter(log_dir='logs/n_chain_{}-{}-{}'\
             .format(setting['algo'], setting['chain'], setting['step']) + str( datetime.now()))
 
     #df.to_csv('tmp/n_chain/{}_{}_{}'.format(setting['algo'], setting['chain'], setting['step']))
@@ -110,13 +112,21 @@ if __name__ == "__main__":
     for t in trange(setting['step']):
         a = agent.action(s)
         ns, r = env.step(a)
+        #if s == N -2:
+        #    print(s,r, a, ns, t)
         c_reward += r
         agent.update(s, r, a, ns)
         #print(s, r, 'right' if a==1 else 'left', ns)
-        writer.add_scalar('reward', c_reward, t)
+        writer.add_scalar('chain/reward', c_reward, t)
+        writer.add_scalar('chain/Q', agent.Q[s, a], t)
+        writer.add_scalar('detail/Q_n-2, 0', agent.Q[N-2, 0], t)
+        writer.add_scalar('detail/Q_n-2, 1', agent.Q[N-2, 1], t)
+        writer.add_scalar('chain/bonus', agent.bonus(s, a), t)
+        writer.add_scalar('chain/state', s, t)
+        writer.add_scalar('chain/single reward', r, t)
         reward.append(r)
         state.append(s)
         s = ns
     df = pd.DataFrame({'reward': reward, 'state': state})
     #print(agent.Q)
-    #df.to_csv('tmp/n_chain/{}_{}_{}'.format(setting['algo'], setting['chain'], setting['step']))
+    df.to_csv('tmp/n_chain/{}_{}_{}'.format(setting['algo'], setting['chain'], setting['step']))

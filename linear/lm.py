@@ -5,8 +5,8 @@ from .trajectory import Trajectory
 
 class LeastSquare:
     def __init__(self, setting, device):
+        #self.w = torch.nn.init.normal_(self.w)
         self.w = torch.zeros(setting['feature_size'], 1)
-        self.w = torch.nn.init.normal_(self.w)
         self.t = 0
         self.beta = setting['beta']
         self.device = device
