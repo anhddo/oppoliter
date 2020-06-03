@@ -97,8 +97,6 @@ class Agent:
         self.N[s, a] += 1
         v= self.V(ns)
         self.Q[s, a] = r + self.g * v
-        #print(self.g, s, a, r, v)
-        #self.Q[s, a] = r + self.V(ns) - self.avg_reward
 
         self.avg_reward = (self.avg_reward * t + a) / (t + 1)
 
@@ -116,7 +114,6 @@ if __name__ == "__main__":
     writer = SummaryWriter(log_dir='logs/n_chain_{}-{}-{}'\
             .format(setting['algo'], setting['chain'], setting['step']) + str( datetime.now()))
 
-    #df.to_csv('tmp/n_chain/{}_{}_{}'.format(setting['algo'], setting['chain'], setting['step']))
 
     if setting['algo']=='noex' or setting['algo'] == 'greedy':
         agent.B = 0
@@ -132,9 +129,6 @@ if __name__ == "__main__":
 
     c_reward = 0
 
-    #print(agent.Q)
-    #print()
-    #print(agent.N)
 
     for t in trange(setting['step']):
         a = 0

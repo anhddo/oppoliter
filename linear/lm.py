@@ -5,13 +5,10 @@ from .trajectory import Trajectory
 
 class LeastSquare:
     def __init__(self, setting, device):
-        #self.w = torch.nn.init.normal_(self.w)
         self.w = torch.zeros(setting['feature_size'], 1)
         self.t = 0
         self.beta = setting['beta']
         self.device = device
-        #self.inv_cov = 10 * torch.eye(setting['feature_size'])
-        #self.last_inv_cov = 10 * torch.eye(setting['feature_size'])
         self.trajectory = Trajectory(setting, device, setting['buffer_size'])
 
     def reset_w(self):
@@ -31,12 +28,6 @@ class LeastSquare:
             assert Q.shape == B.shape
             Q += B
         return Q
-
-    def update_cov(self, state_t):
-        self.trajectory.update_cov(state_t)
-        #A = self.last_inv_cov
-        #d = 1. + state_t.mm(A).mm(state_t.T)
-        #self.last_inv_cov -= A.mm(state_t.T).mm(state_t.mm(A)) / d
 
     def convert_to_cpu(self):
         self.w = self.w.cpu()
@@ -72,7 +63,6 @@ class Model:
 
     def update1(self, ls_model, kargs, reward, state, terminal, V_next):
         Q = reward + V_next * (1 - terminal)# - torch.mean(reward)
-        #Q = reward + V_next - torch.mean(reward)
         ls_model.fit(state, Q)
         assert Q.shape[1] == 1
 
@@ -81,8 +71,14 @@ class Model:
         ls_model.fit(state, Q)
         assert Q.shape[1] == 1
 
+    def update3(self, ls_model, kargs, reward, state, terminal, V_next):
+        Q = reward + V_next - torch.mean(reward)
+        ls_model.fit(state, Q)
+        assert Q.shape[1] == 1
+
     def average_reward_algorithm(self, **kargs):
-        assert len(kargs['policy']) == kargs['env'].action_space
+        setting = kargs['setting']
+        assert len(kargs['policy']) == setting['n_action']
         for ls_model, action_policy in zip(self.action_model, kargs['policy']):
             state, reward, next_state, terminal = ls_model.trajectory.get_past_data()
             if state.shape[0] == 0:
@@ -94,20 +90,17 @@ class Model:
                 V_next = Q_next.gather(1, action_policy.view(-1, 1))
             else:
                 V_next = Q_next.max(dim=1)[0].view(-1, 1)
-            #V_next = torch.clamp(V_next, min=kargs['env'].min_clamp, max=H)
             V_next = torch.clamp(V_next ,max=self.H)
-            #print(self.H)
 
 
             if action_policy != None:
                 self.update2(ls_model, kargs, reward, state, terminal,  V_next)
             else:
-                #if ls_model.t == 0:
-                #    ls_model.t += 1
-                #    V_next = H
-                self.update2(ls_model, kargs, reward, state, terminal, V_next)
+                if setting['inf_hor']:
+                    self.update3(ls_model, kargs, reward, state, terminal, V_next)
+                else:
+                    self.update2(ls_model, kargs, reward, state, terminal, V_next)
 
-            #assert ls_model.trajectory.inv_cov.shape == (self.D, self.D)
             assert ls_model.w.shape == (self.D, 1)
 
 

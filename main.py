@@ -5,9 +5,8 @@ import torch
 from linear.fourier_transform import FourierTransform
 from linear.lm import Model
 from linear.trajectory import Trajectory
-from linear.leastsquare_qlearning import LeastSquareQLearning
+from linear.leastsquare import QLearning
 from linear.politex import Politex
-from linear.env import EnvWrapper
 import pickle
 import timeit
 from tqdm import tqdm, trange
@@ -22,6 +21,7 @@ if __name__ == "__main__":
     parser.add_argument("--n-eval", type=int, default=5)
     parser.add_argument("--sample-len", type=int, default=5)
     parser.add_argument("--use-nn", action='store_true')
+    parser.add_argument("--inf-hor", action='store_true')
     parser.add_argument("--random-reward", action='store_true')
     parser.add_argument("--T", type=int, default=5)
     parser.add_argument("--buffer-size", type=int, default=5000)
@@ -41,7 +41,7 @@ if __name__ == "__main__":
     setting['bonus'] = True if setting['bonus'] == 1 else False
 
 
-    assert setting['algo'] in ['val', 'pol', 'egreedy', 'politex']
+    assert setting['algo'] in ['vi', 'egreedy', 'politex']
 
     torch.set_default_tensor_type(torch.DoubleTensor)
 
@@ -52,9 +52,10 @@ if __name__ == "__main__":
     with open(path.join(parent_dir, 'setting.txt'), 'w') as f:
         f.write(str(setting))
 
+    print(setting)
     for i in trange(setting['start_index'], setting['start_index'] + setting['repeat']):
         if setting['algo'] == 'politex':
             Politex().train(i, setting)
         else:
-            LeastSquareQLearning().train(i, setting)
+            QLearning().train(i, setting)
 

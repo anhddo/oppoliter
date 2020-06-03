@@ -45,7 +45,6 @@ class Trajectory:
 
     def get_past_data(self):
         index = self.last_index + 1
-        #index = self.index + 1
         return (self.state[:index, :],
                 self.reward[:index],
                 self.next_state[:index, :],

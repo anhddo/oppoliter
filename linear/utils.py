@@ -1,17 +1,21 @@
 from .trajectory import Trajectory
 from .fourier_transform import FourierTransform
 from .lm import Model
-from .env import EnvWrapper
 from .ddqn import DQN
 import torch
 import pickle
+import gym
 
 def initialize(setting):
-    env = EnvWrapper(setting)
+    #env = EnvWrapper(setting)
+    env = gym.make(setting['env'])
     device = get_device(setting)
     horizon_len = setting['step']
-    setting['n_action'] = env.action_space
-    setting['n_observation'] = env.observation_space
+    setting['n_action'] = env.action_space.n
+    setting['n_observation'] = env.observation_space.shape[0]
+    if env.spec._env_name == 'Acrobot':
+        setting['n_observation'] = 4
+
     if setting['use_nn']:
         ftr_transform = DQN(setting['n_observation'], env.action_space, 16, device).to(device)
         ftr_transform.load_state_dict(torch.load('tmp/{}-nn-model'.format(setting['env'])))
@@ -21,15 +25,10 @@ def initialize(setting):
         ftr_transform = FourierTransform(setting)
     setting['feature_size'] = ftr_transform.dimension
 
-    #trajectory = [
-    #    Trajectory(ftr_transform.dimension, device, horizon_len)
-    #        for _ in range(env.action_space)
-    #]
     model = Model(setting, device)
     return {
             'env': env,
             'ftr_transform': ftr_transform,
-            #'trajectory': trajectory,
             'model': model,
             'device': device
             }
