@@ -66,12 +66,8 @@ class Model:
         ls_model.fit(state, Q)
         assert Q.shape[1] == 1
 
-    def update2(self, ls_model, kargs, reward, state, terminal, V_next):
-        Q = reward + V_next * (1 - terminal)
-        ls_model.fit(state, Q)
-        assert Q.shape[1] == 1
 
-    def update3(self, ls_model, kargs, reward, state, terminal, V_next):
+    def update2(self, ls_model, kargs, reward, state, terminal, V_next):
         Q = reward + V_next - torch.mean(reward)
         ls_model.fit(state, Q)
         assert Q.shape[1] == 1
@@ -90,16 +86,20 @@ class Model:
                 V_next = Q_next.gather(1, action_policy.view(-1, 1))
             else:
                 V_next = Q_next.max(dim=1)[0].view(-1, 1)
-            V_next = torch.clamp(V_next ,max=self.H)
+            if setting['env'] == 'Acrobot-v1':
+                #V_next = torch.clamp(V_next , min=-self.H, max=0)
+                V_next = torch.clamp(V_next , min=-500, max=0)
+            else:
+                V_next = torch.clamp(V_next , max=self.H)
 
 
             if action_policy != None:
                 self.update2(ls_model, kargs, reward, state, terminal,  V_next)
             else:
                 if setting['inf_hor']:
-                    self.update3(ls_model, kargs, reward, state, terminal, V_next)
-                else:
                     self.update2(ls_model, kargs, reward, state, terminal, V_next)
+                else:
+                    self.update1(ls_model, kargs, reward, state, terminal, V_next)
 
             assert ls_model.w.shape == (self.D, 1)
 

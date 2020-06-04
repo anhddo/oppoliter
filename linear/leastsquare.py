@@ -41,7 +41,7 @@ class QLearning:
 
         setting['episode_step'] = 0
         pbar = tqdm(total=setting['step'], leave=True)
-        reward_track, time_step = [], []
+        reward_list, time_step = [], []
         writer = SummaryWriter(log_dir='logs/{}-{}'\
                 .format(setting['algo'], '-optimistic' if setting['bonus'] else '') \
                 + setting['env'] + str( datetime.now()))
@@ -63,9 +63,9 @@ class QLearning:
                     writer.add_scalar('ls/reward', total_reward, step)
 
                     writer.add_scalar('ls/reward', total_reward, step)
-                    reward_track.append(total_reward)
+                    reward_list.append(total_reward)
                     time_step.append(step)
-                    #total_reward = 0
+                    total_reward = 0
                     episode_step = 0
 
                     state = self.transform(env_reset(env), setting, ftr_transform, device)
@@ -83,7 +83,7 @@ class QLearning:
                 next_state, reward, terminal = env_step(env, action, episode_step)
                 total_reward += reward
                 bonus = model.action_model[action].bonus(setting['beta'], state).item() if setting['bonus'] else 0
-                reward += bonus
+                #reward += bonus
 
                 writer.add_scalar('ls/bonus', bonus, step)
                 writer.add_scalar('ls/w', torch.max(model.action_model[0].w), step)
@@ -94,8 +94,8 @@ class QLearning:
                 if step % setting['sample_len'] == 0:
                     model.average_reward_algorithm(
                             env=env,
-                            #bonus=setting['bonus'],
-                            bonus=False,
+                            bonus=setting['bonus'],
+                            #bonus=False,
                             policy=[None] * setting['n_action'],
                             setting=setting
                         )
@@ -105,5 +105,5 @@ class QLearning:
         env.close()
         pbar.close()
 
-        df = pd.DataFrame(data={'step': time_step, 'reward': reward_track})
+        df = pd.DataFrame(data={'step': time_step, 'reward': reward_list})
         df.to_csv(path.join(setting['save_dir'], 'result{}.csv'.format(train_index)))

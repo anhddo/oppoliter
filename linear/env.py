@@ -7,13 +7,11 @@ import numpy.random as npr
 
 def env_step(env, action, t):
     state, reward, done, _ = env.step(action)
-    if env.spec._env_name in ['MountainCar', 'Acrobot']:
-        reward = 0
-        if done and t < env._max_episode_steps:
-            reward = 1
 
     if env.spec._env_name == 'Acrobot':
         state = env.state
+        #height = -cos(state[0]) - cos(state[1] + state[0])
+        #done = height > 1.95 or t > env._max_episode_steps
     return state, reward, done
 
 def env_reset(env):
@@ -21,6 +19,28 @@ def env_reset(env):
     if env.spec._env_name == 'Acrobot':
         state = env.state
     return state
+
+class DeepSea:
+    def __init__(self, N):
+        self.x = 0
+        self.y = 0
+        self.n_action = 2
+        self.n_observation = 2 * N
+        self.N = N
+
+    def step(self, action):
+        if action == 0:
+            self.x = (self.x + 1) % self.N
+        if action == 1:
+            self.x = (self.x - 1) % self.N
+        if self.x == 0 and self.y == 0:
+            pass
+
+
+    def reset(self):
+        self.x = 0
+        self.y = 0
+
 
 #class EnvWrapper:
 #    def __init__(self, setting):

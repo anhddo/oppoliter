@@ -157,9 +157,4 @@ if __name__ == "__main__":
         s = ns
     print(134, agent.Q[1, 0], agent.Q[N-2, 1])
     df = pd.DataFrame({'reward': reward, 'state': state})
-    #print(agent.Q)
-    #print()
-    #print(agent.N)
-    #print('bonus')
-    #print(agent.bonus_)
     df.to_csv('tmp/n_chain/{}_{}_{}'.format(setting['algo'], setting['chain'], setting['step']))
