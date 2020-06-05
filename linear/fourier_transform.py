@@ -1,7 +1,6 @@
 import numpy as np
 import numpy.random as npr
 import pickle
-from sklearn.preprocessing import MinMaxScaler
 import torch
 from os import path
 

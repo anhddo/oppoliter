@@ -1,7 +1,6 @@
 import gym
 import numpy as np
 from numpy import cos
-import gym_cartpole_swingup
 import random
 import numpy.random as npr
 

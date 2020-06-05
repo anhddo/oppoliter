@@ -6,6 +6,7 @@ tags
 /tmp/
 /notebook/.ipynb_checkpoints/
 /notebook/*.png
+/notebook/*.pdf
 record/
 train_result/
 .ipynb_checkpoints/

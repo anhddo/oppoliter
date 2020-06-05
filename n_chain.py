@@ -141,17 +141,8 @@ if __name__ == "__main__":
             a = agent.action(s)
 
         ns, r = env.step(a)
-        #if s == N -2:
-        #    print(s,r, a, ns, t)
         c_reward += r
         agent.update(s, r, a, ns, t)
-        writer.add_scalar('chain/reward', c_reward, t)
-        writer.add_scalar('chain/Q', agent.Q[s, a], t)
-        writer.add_scalar('detail/Q_n-2, 0', agent.Q[1, 0], t)
-        writer.add_scalar('detail/Q_n-2, 1', agent.Q[1, 1], t)
-        writer.add_scalar('chain/bonus', agent.bonus(s, a), t)
-        writer.add_scalar('chain/state', s, t)
-        writer.add_scalar('chain/single reward', r, t)
         reward.append(r)
         state.append(s)
         s = ns
