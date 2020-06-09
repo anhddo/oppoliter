@@ -6,18 +6,14 @@ from .trajectory import Trajectory
 class LeastSquare:
     def __init__(self, setting, device):
         self.w = torch.zeros(setting['feature_size'], 1)
-        self.t = 0
         self.beta = setting['beta']
         self.device = device
         self.trajectory = Trajectory(setting, device, setting['buffer_size'])
 
-    def reset_w(self):
-        self.w.fill_(0)
-
     def bonus(self, beta, x):
         inv_cov = self.trajectory.inv_cov
         inv_cov = inv_cov.to(self.device) if x.is_cuda else inv_cov
-        b = beta * torch.sqrt(x.mm(inv_cov).mm(x.T).diagonal())#.view(-1, 1)
+        b = beta * torch.sqrt(x.mm(inv_cov).mm(x.T).diagonal())
         return b
 
     def predict(self, x, use_bonus):
@@ -102,14 +98,3 @@ class Model:
                     self.update1(ls_model, kargs, reward, state, terminal, V_next)
 
             assert ls_model.w.shape == (self.D, 1)
-
-
-    def load(self, path):
-        with open(path, 'rb') as f:
-            tmp_dict = pickle.load(f)
-            self.__dict__.update(tmp_dict)
-
-    def save(self, path):
-        with open(path, 'wb') as f:
-            self.clear_trajectory()
-            pickle.dump(self.__dict__, f)

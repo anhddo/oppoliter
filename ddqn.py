@@ -22,13 +22,13 @@ from torch.utils.tensorboard import SummaryWriter
 from datetime import datetime
 
 class ReplayMemory(object):
+
     def __init__(self, capacity):
         self.capacity = capacity
         self.memory = []
         self.position = 0
 
     def push(self, *args):
-        """Saves a transition."""
         if len(self.memory) < self.capacity:
             self.memory.append(None)
         self.memory[self.position] = Transition(*args)
@@ -40,43 +40,6 @@ class ReplayMemory(object):
     def __len__(self):
         return len(self.memory)
 
-class Memory:
-    def __init__(self, max_len, state_shape, state_dtype):
-        assert isinstance(max_len, int)
-        assert max_len > 0
-
-        self.max_len = max_len                      # maximum length        
-        self._curr_insert_ptr = 0                   # index to insert next data sample
-        self._curr_len = 0                          # number of currently stored elements
-
-        self._hist_St = np.zeros((max_len, state_shape), dtype=state_dtype)
-        self._hist_At = np.zeros(max_len, dtype=int)
-        self._hist_Rt_1 = np.zeros(max_len, dtype=float)
-        self._hist_St_1 = np.zeros((max_len, state_shape), dtype=state_dtype)
-        self._hist_done_1 = np.zeros(max_len, dtype=bool)
-
-    def push(self, St, At, Rt_1, St_1, done_1):
-        self._hist_St[self._curr_insert_ptr] = St
-        self._hist_At[self._curr_insert_ptr] = At
-        self._hist_Rt_1[self._curr_insert_ptr] = Rt_1
-        self._hist_St_1[self._curr_insert_ptr] = St_1
-        self._hist_done_1[self._curr_insert_ptr] = done_1
-        self._curr_len = min(self._curr_len + 1, self.max_len)
-        self._curr_insert_ptr =  (self._curr_len + 1) % self.max_len
-
-    def __len__(self):
-        return self._curr_len
-
-    def get_batch(self, batch_len):
-        indices = np.random.randint(low=0, high=self._curr_len, size=batch_len, dtype=int)
-        states = np.take(self._hist_St, indices, axis=0)
-        actions = np.take(self._hist_At, indices, axis=0)
-        rewards_1 = np.take(self._hist_Rt_1, indices, axis=0)
-        states_1 = np.take(self._hist_St_1, indices, axis=0)
-        dones_1 = np.take(self._hist_done_1, indices, axis=0)
-        return states, actions, rewards_1, states_1, dones_1, indices
-
-
 class DQN(nn.Module):
     def __init__(self, input_dim, output_dim, embeded_size, device):
         super(DQN, self).__init__()
@@ -84,32 +47,23 @@ class DQN(nn.Module):
         n = 64
         self.ln1 = nn.Linear(input_dim, n)
         self.ln2 = nn.Linear(n, n)
-        self.ln5 = nn.Linear(n, embeded_size)
-        self.head = nn.Linear(embeded_size, output_dim)
-        #self.inv_cov = [torch.eye(embeded_size).to(device) * 1e5] * n_actions
-        #self.inv_cov = [torch.inverse(M) for M in self.cov]
+        self.ln3 = nn.Linear(n, embeded_size)
+        self.ln4 = nn.Linear(embeded_size, output_dim)
         self.input_dim = input_dim
         nn.init.kaiming_uniform_(self.ln1.weight, nonlinearity='relu')
         nn.init.kaiming_uniform_(self.ln2.weight, nonlinearity='relu')
         nn.init.kaiming_uniform_(self.ln5.weight, nonlinearity='relu')
         nn.init.kaiming_uniform_(self.head.weight, nonlinearity='relu')
 
-    def transform(self, x):
+    def forward(self, x):
         x = x.view(-1, self.input_dim).to(self.device)
         x = F.relu(self.ln1(x))
         x = F.relu(self.ln2(x))
-        x = F.relu(self.ln5(x))
+        x = F.relu(self.ln3(x))
+        x = F.relu(self.ln4(x))
         return x
 
-    def q(self, x):
-        v = self.transform(x)
-        o = self.head(v)
-        return o, v
 
-
-    def forward(self, x):
-        o, v = self.q(x)
-        return o
 
 def no_explore(policy_net, state):
     with torch.no_grad():
@@ -173,8 +127,6 @@ def training(setting):
     timestep = []
     terminal = True
     state = env.reset()
-    #state = env.state
-    #state = torch.tensor([state], device=device)
     target_net.load_state_dict(policy_net.state_dict())
     target_net.eval()
 

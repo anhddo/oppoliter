@@ -46,7 +46,6 @@ if __name__ == "__main__":
 
     parent_dir = setting['save_dir']
     os.makedirs(parent_dir, exist_ok=True)
-    #setting['model_path'] = path.join(parent_dir, 'model.pkl')
 
     with open(path.join(parent_dir, 'setting.txt'), 'w') as f:
         f.write(str(setting))
