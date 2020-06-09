@@ -2,11 +2,10 @@ import argparse
 import os
 from os import path
 import torch
-from linear_tf.fourier_transform import FourierTransform
-from linear_tf.lm import Model
-from linear_tf.trajectory import Trajectory
-from linear_tf.leastsquare import QLearning
-from linear_tf.politex import Politex
+from leastsquare.fourier_transform import FourierTransform
+from leastsquare.lm import Model
+from leastsquare.trajectory import Trajectory
+from leastsquare.leastsquare import QLearning
 import pickle
 import timeit
 from tqdm import tqdm, trange
@@ -54,8 +53,5 @@ if __name__ == "__main__":
 
     print(setting)
     for i in trange(setting['start_index'], setting['start_index'] + setting['repeat']):
-        if setting['algo'] == 'politex':
-            Politex().train(i, setting)
-        else:
-            QLearning().train(i, setting)
+        QLearning().train(i, setting)
 
